@@ -27,7 +27,7 @@ class ColorSetter(Button):
         color_id: int = -1,
         color_format: str = "FFFFFF",
         parent: Drawable | None = None,
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
     ):
         """A basic object to set a color and preview it.
 
@@ -40,7 +40,7 @@ class ColorSetter(Button):
             color_id (int, optional): The color id to use. Defaults to -1 (maximum id).
             color_format (str, optional): The format to display the color in. Defaults to "255, 255, 255".
             parent (Drawable | None, optional): The parent object. Defaults to None.
-            palette (Optional[ColorPalette], optional): The color palette to use. Defaults to ColorPalette().
+            palette (Optional[ColorPalette], optional): The color palette to use. Defaults to None.
 
         About color_format: change displayed color format. Supported formats:
             255, 255, 255
@@ -101,7 +101,7 @@ class ColorSetter(Button):
 
         self.rgb_preview.set_color_255(default_color)
 
-        super().__init__(
+        super().__init__( # Button.__init__
             self._format(default_color, color_format),
             y,
             x,
@@ -136,6 +136,7 @@ class ColorSetter(Button):
             raise ValueError(f"Invalid color format: {color_format}")
 
     def set_color(self, color: Tuple[int, int, int]) -> None:
+        """Set the color of the object as (0-255, 0-255, 0-255) format"""
         self.rgb_preview.set_color_255(color)
         self.set_text(self._format(color, self.color_format))
 

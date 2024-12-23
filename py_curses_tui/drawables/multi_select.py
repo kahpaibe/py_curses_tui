@@ -25,7 +25,7 @@ class MultiSelect(KeyCaptureDrawable):
         y: int,
         x: int,
         choices: list[Choice],
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
         parent: Drawable | None = None,
     ):
         """A list of choices, with multiple choices selectable at a time.
@@ -34,7 +34,7 @@ class MultiSelect(KeyCaptureDrawable):
             y (int): y coordinate
             x (int): x coordinate
             choices (list[Choice]): list of choices
-            palette (ColorPalette, optional): color palette. Defaults to ColorPalette().
+            palette (ColorPalette, optional): color palette. Defaults to None.
             parent (Drawable, optional): parent in hierarchy (e.g. may be used for relative coordinates).
 
         Color palette:
@@ -59,7 +59,7 @@ class MultiSelect(KeyCaptureDrawable):
         self._choices = choices
         self._selected = []  # selected choices
         self._cursor = -1  # cursor ("mouse" over) position # starting at -1 not that bad !
-        self.palette = palette
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
         self.capture_take = self._capture_take
         self.capture_remove = self._capture_remove
 
@@ -95,9 +95,13 @@ class MultiSelect(KeyCaptureDrawable):
         """Get all choices"""
         return self._choices
 
-    def get_selected_choices(self) -> List[Choice]:
+    def get_selected_indexes(self) -> List[int]:
         """Get current selected choices indexes."""
         return self._selected
+    
+    def get_selected_choices(self) -> List[Choice]:
+        """Get current selected choices."""
+        return [self._choices[i] for i in self._selected]
 
     def get_selected_index(self) -> List[int]:
         """Return the indexes of the selected choices."""
@@ -118,9 +122,9 @@ class MultiSelect(KeyCaptureDrawable):
         y, x = self.get_yx()
         if len(self._choices) == 0:  # if empty
             if self._cursor == -1:
-                Drawable.draw_str(GenStr(" "), window, y, x, [], self.palette.text)
+                Drawable.draw_str(GenStr(" "), window, y, x, [], self._get_palette_bypass().text)
             else:  # hover
-                Drawable.draw_str(GenStr(" "), window, y, x, [], self.palette.cursor)
+                Drawable.draw_str(GenStr(" "), window, y, x, [], self._get_palette_bypass().cursor)
             return
 
         for i, choice in enumerate(self._choices):
@@ -135,7 +139,7 @@ class MultiSelect(KeyCaptureDrawable):
                     i + y,
                     x,
                     [curses.A_BOLD],
-                    self.palette.cursor,
+                    self._get_palette_bypass().cursor,
                 )
             else:
                 Drawable.draw_str(
@@ -144,7 +148,7 @@ class MultiSelect(KeyCaptureDrawable):
                     i + y,
                     x,
                     [],
-                    self.palette.text,
+                    self._get_palette_bypass().text,
                 )
 
     def key_behaviour(self, key: int) -> None:

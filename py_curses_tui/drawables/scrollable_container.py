@@ -36,7 +36,7 @@ class ScrollableContainer(KeyCaptureDrawable):
         inside_height: int,
         scroll_multiplier_x: int = 2,
         scroll_multiplier_y: int = 1,
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
         parent: Optional[DrawableContainer] = None,
     ):
         """A scrollable area that can contain other drawables.
@@ -51,7 +51,7 @@ class ScrollableContainer(KeyCaptureDrawable):
             inside_height (int): height of the inside area (internal).
             scroll_multiplier_x (int, optional): multiplier for the horizontal scroll speed. Defaults to 2.
             scroll_multiplier_y (int, optional): multiplier for the vertical scroll speed. Defaults to 1.
-            palette (Optional[ColorPalette], optional): color palette of the object. Defaults to ColorPalette().
+            palette (Optional[ColorPalette], optional): color palette of the object. Defaults to None.
             parent (Optional[DrawableContainer], optional): parent of the object. Defaults to None.
 
         Color palette:
@@ -76,14 +76,14 @@ class ScrollableContainer(KeyCaptureDrawable):
         self._inside_height = inside_height
         self.scroll_multiplier_x = scroll_multiplier_x
         self.scroll_multiplier_y = scroll_multiplier_y
-        self.palette = palette
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
 
         self._drawables: List[Drawable] = []  # TODO: for now, only drawables, no kcds
         self._scroll_x = 0
         self._scroll_y = 0
 
         self._pad = curses.newpad(self._inside_height, self._inside_width)
-        self._pad.bkgdset(" ", curses.color_pair(self.palette.box))
+        self._pad.bkgdset(" ", curses.color_pair(self._get_palette_bypass().box))
         self._state = -1  # -1: unfocused, 0: hover, 1: active
 
         # self.capture_goto: Callable[[Tuple[int, int], int], Any] = None
@@ -121,21 +121,21 @@ class ScrollableContainer(KeyCaptureDrawable):
         # == Draw the border ==
         if self._state == -1:
             Drawable.rectangle(
-                window, (y, x), (y + self._height - 1, x + self._width - 1), self.palette.box
+                window, (y, x), (y + self._height - 1, x + self._width - 1), self._get_palette_bypass().box
             )
         elif self._state == 0:
             Drawable.rectangle(
                 window,
                 (y, x),
                 (y + self._height - 1, x + self._width - 1),
-                self.palette.box_hover,
+                self._get_palette_bypass().box_hover,
             )
         elif self._state == 1:
             Drawable.rectangle(
                 window,
                 (y, x),
                 (y + self._height - 1, x + self._width - 1),
-                self.palette.box_selected,
+                self._get_palette_bypass().box_selected,
             )
 
         window.noutrefresh()
@@ -191,7 +191,7 @@ class ScrollableContainer(KeyCaptureDrawable):
                 yf,
                 xf,
                 [],
-                self.palette.scrollbar,
+                self._get_palette_bypass().scrollbar,
             )
 
     def _draw_horizontal_scrollbar(self, window: cwin, y: int, x: int) -> None:
@@ -224,7 +224,7 @@ class ScrollableContainer(KeyCaptureDrawable):
                 yf,
                 xf,
                 [],
-                self.palette.scrollbar,
+                self._get_palette_bypass().scrollbar,
             )
 
     def scroll(self, dy: int, dx: int) -> None:
@@ -330,3 +330,14 @@ class ScrollableContainer(KeyCaptureDrawable):
         raise NotImplementedError(
             "ScrollableContainer does not support hitbox overwriting, thus reset_hitbox is not defined."
         )
+
+    def set_palette(self, palette, should_override = False) -> None:
+        """Set the color palette of the objects."""
+        super().set_palette(palette, should_override)
+        for obj in self._drawables:
+            obj.set_palette(palette, should_override)
+    
+    def get_palette(self) -> ColorPalette:
+        """Return the color palette of the object."""
+        return super().get_palette()
+    

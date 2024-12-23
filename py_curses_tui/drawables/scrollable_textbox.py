@@ -30,7 +30,7 @@ class ScrollableTextBox(KeyCaptureDrawable):
         text: str = "",
         scroll_type: int = 0,
         fill_background: bool = True,
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
         parent: Drawable | None = None,
     ):
         """An item box that can be scrolled through and edited.
@@ -44,7 +44,7 @@ class ScrollableTextBox(KeyCaptureDrawable):
             text (str, optional): text the object contains when creating the object. Defaults to ""
             scroll_type (int, optional default=0) 0: no scroll bar, 1: basic scroll bar, 2: arrows
             fill_background (bool, optional): whether the background should be filled. Defaults to True.
-            palette (ColorPalette, optional): color palette. Defaults to ColorPalette().
+            palette (ColorPalette, optional): color palette. Defaults to None.
             parent (Drawable, optional): parent in hierarchy (e.g. may be used for relative coordinates).
 
         Supported keys:
@@ -83,7 +83,7 @@ class ScrollableTextBox(KeyCaptureDrawable):
 
         self.set_text(text)
         self._scroll_type = scroll_type
-        self.palette = palette
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
 
         self.capture_take = self._capture_take
         self.capture_remove = self._capture_remove
@@ -116,7 +116,7 @@ class ScrollableTextBox(KeyCaptureDrawable):
 
     def get_text(self) -> str:
         """Get the text in the text box."""
-        return self._texts.join("\n")
+        return "\n".join(self._texts)
 
     def draw(self, window: cwin) -> None:
         if not self._first_draw:
@@ -131,14 +131,14 @@ class ScrollableTextBox(KeyCaptureDrawable):
                     for i in range(len(self._texts), self._height):
                         gs = GenStr(" " * self._width)
                         Drawable.draw_str(
-                            gs, window, y + i, xf, [], self.palette.text_edit_inactive
+                            gs, window, y + i, xf, [], self._get_palette_bypass().text_edit_inactive
                         )
                 for i in range(0, min(self._height, len(self._texts))):
                     line = self._texts[i + self._scroll_y]
                     yf = y + i
                     dl = Drawable.get_str_fixed_size(line[sx:], self._width)
                     gs = GenStr(dl)
-                    Drawable.draw_str(gs, window, yf, xf, [], self.palette.text_edit_inactive)
+                    Drawable.draw_str(gs, window, yf, xf, [], self._get_palette_bypass().text_edit_inactive)
             elif self._state == 0:  # hover
                 if self.fill_background:
                     for i in range(len(self._texts), self._height):
@@ -148,14 +148,14 @@ class ScrollableTextBox(KeyCaptureDrawable):
                             y + i,
                             xf,
                             [],
-                            self.palette.text_edit_hover,
+                            self._get_palette_bypass().text_edit_hover,
                         )
                 for i in range(0, min(self._height, len(self._texts))):
                     line = self._texts[i + self._scroll_y]
                     yf = y + i
                     dl = Drawable.get_str_fixed_size(line[sx:], self._width)
                     gs = GenStr(dl)
-                    Drawable.draw_str(gs, window, yf, xf, [], self.palette.text_edit_hover)
+                    Drawable.draw_str(gs, window, yf, xf, [], self._get_palette_bypass().text_edit_hover)
 
             else:  # active
                 if not self._is_drawing_cursor:
@@ -167,14 +167,14 @@ class ScrollableTextBox(KeyCaptureDrawable):
                                 y + i,
                                 xf,
                                 [],
-                                self.palette.text_edit_text,
+                                self._get_palette_bypass().text_edit_text,
                             )
                     for i in range(0, min(self._height, len(self._texts))):
                         line = self._texts[i + self._scroll_y]
                         yf = y + i
                         dl = Drawable.get_str_fixed_size(line[sx:], self._width)
                         gs = GenStr(dl)
-                        Drawable.draw_str(gs, window, yf, xf, [], self.palette.text_edit_text)
+                        Drawable.draw_str(gs, window, yf, xf, [], self._get_palette_bypass().text_edit_text)
                 else:  # active and drawing cursor
                     for i in range(0, min(self._height, len(self._texts))):
                         line = self._texts[i + self._scroll_y]
@@ -193,7 +193,7 @@ class ScrollableTextBox(KeyCaptureDrawable):
                                 yf,
                                 xf,
                                 [],
-                                self.palette.text_edit_text,
+                                self._get_palette_bypass().text_edit_text,
                             )
                             # draw the cursor separately (bold)
                             Drawable.draw_str(
@@ -202,12 +202,12 @@ class ScrollableTextBox(KeyCaptureDrawable):
                                 yf,
                                 xf + self._current_col,
                                 [curses.A_UNDERLINE, curses.A_BOLD],
-                                self.palette.text_edit_text,
+                                self._get_palette_bypass().text_edit_text,
                             )
                         else:
                             dl = Drawable.get_str_fixed_size(line[sx:], self._width)
                             Drawable.draw_str(
-                                GenStr(dl), window, yf, xf, [], self.palette.text_edit_text
+                                GenStr(dl), window, yf, xf, [], self._get_palette_bypass().text_edit_text
                             )
                     if self.fill_background:
                         for i in range(len(self._texts), self._height):
@@ -217,12 +217,12 @@ class ScrollableTextBox(KeyCaptureDrawable):
                                 y + i,
                                 xf,
                                 [],
-                                self.palette.text_edit_text,
+                                self._get_palette_bypass().text_edit_text,
                             )
             if self._scroll_type == 2:  # draw scroll indications
                 if self._scroll_y > 0:  # arrows
                     Drawable.draw_str(
-                        GenStr(self.arrow_up), window, y, x, [], self.palette.scrollbar
+                        GenStr(self.arrow_up), window, y, x, [], self._get_palette_bypass().scrollbar
                     )
                 if self._scroll_y < len(self._texts) - self._height:
                     Drawable.draw_str(
@@ -231,7 +231,7 @@ class ScrollableTextBox(KeyCaptureDrawable):
                         y + self._height - 1,
                         x,
                         [],
-                        self.palette.scrollbar,
+                        self._get_palette_bypass().scrollbar,
                     )
             elif self._scroll_type == 1 and len(self._texts) > 1:  # scrollbar
                 scrollbar_height = int(
@@ -267,7 +267,7 @@ class ScrollableTextBox(KeyCaptureDrawable):
                             yf,
                             x,
                             [],
-                            self.palette.scrollbar,
+                            self._get_palette_bypass().scrollbar,
                         )
 
     def key_behaviour(self, key: int) -> None:

@@ -14,7 +14,7 @@ class Fill(DrawableContainer):
         x: int,
         height: int,
         width: int,
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
         parent: Optional[Drawable] = None,
     ):
         """A box that can be drawn.
@@ -31,10 +31,11 @@ class Fill(DrawableContainer):
             box: fill color.
         """
         super().__init__(y, x, parent)
-        self.palette = palette
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
+
         self.height, self.width = height, width
 
     def draw(self, window: cwin) -> None:
         y, x = self.get_yx()
-        Drawable.fill(window, y, x, y + self.height - 1, x + self.width - 1, self.palette.box)
+        Drawable.fill(window, y, x, y + self.height - 1, x + self.width - 1, self._get_palette_bypass().box)
         super().draw(window)  # draw every child inside the box

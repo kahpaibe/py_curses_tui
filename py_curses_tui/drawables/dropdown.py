@@ -20,7 +20,7 @@ class DropDown(Button):
         allow_invalid_option: bool = False,
         width_override: Optional[int] = None,
         parent: Drawable | None = None,
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
     ):
         """A dropdown menu to select a string value from a list of strings.
 
@@ -32,7 +32,7 @@ class DropDown(Button):
             allow_invalid_option (bool, optional): whether to allow invalid options. Defaults to False.
             width_override (Optional[int], optional): overrides the width. Defaults to None.
             parent (Drawable, optional): parent in hierarchy (e.g. may be used for relative coordinates).
-            palette (ColorPalette, optional): color palette. Defaults to ColorPalette().
+            palette (ColorPalette, optional): color palette. Defaults to None.
 
         Color palette:
             button_selected: color of the button when selected.
@@ -48,15 +48,12 @@ class DropDown(Button):
         Note:
             The dropdown's first option should be manually set to the desired value using set_option().
         """
+        super().__init__("", y, x, self._action, parent, palette, width=1, centered=False)
         self._width_override = width_override
         self.allow_invalid_option = allow_invalid_option
-        self.palette: ColorPalette = replace(palette)  # copy
-
-        self.button_selected_col = self.palette.button_selected
-        self.button_unselected_col = self.palette.button_unselected
-        self.button_selected_invalid_col = self.palette.button_selected_invalid
-        self.button_unselected_invalid_col = self.palette.button_unselected_invalid
-        super().__init__("", y, x, self._action, parent, self.palette, width=1, centered=False)
+        __palette = replace(palette) if palette is not None else None
+        self.set_palette(__palette, False) # None if not set, should be overwritten when adding to a container (copy)
+        
         self._ui = ui
         self._options: List[str] = []
         self.set_options(options)
@@ -133,11 +130,11 @@ class DropDown(Button):
             if not self.allow_invalid_option:
                 raise ValueError(f"Option {o.__repr__()} not in options {self._options}")
             else:
-                self.palette.button_selected = self.button_selected_invalid_col
-                self.palette.button_unselected = self.button_unselected_invalid_col
+                self.get_palette().button_selected = self.get_palette().button_selected_invalid
+                self.get_palette().button_unselected = self.get_palette().button_unselected
         else:
-            self.palette.button_selected = self.button_selected_col
-            self.palette.button_unselected = self.button_unselected_col
+            self.get_palette().button_selected = self.get_palette().button_selected
+            self.get_palette().button_unselected = self.get_palette().button_unselected
         max_len = max(len(op) for op in self._options)
         self.set_text(option.ljust(max_len))
 
@@ -152,3 +149,7 @@ class DropDown(Button):
     def draw(self, win: cwin) -> None:
         """Draw the dropdown."""
         super().draw(win)
+    
+    def set_palette(self, palette, should_override = True) -> None:
+        """Set the color palette."""
+        super().set_palette(palette, should_override)

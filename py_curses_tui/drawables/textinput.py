@@ -22,7 +22,7 @@ class TextInput(KeyCaptureDrawable):
         width: int = 1,
         max_length: int = 0,
         parent: Drawable | None = None,
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
     ):
         """An editable text box. Can be used to input text.
 
@@ -32,7 +32,7 @@ class TextInput(KeyCaptureDrawable):
             width (int, optional): width of the text box. Defaults to 1.
             max_length (int, optional): maximum length of the text, 0 for no limit. Defaults to 0.
             parent (Drawable, optional): parent in hierarchy (e.g. may be used for relative coordinates).
-            palette (ColorPalette, optional): color palette. Defaults to ColorPalette().
+            palette (ColorPalette, optional): color palette. Defaults to None.
 
         Supported keys:
             - printable characters : write character at cursor position
@@ -61,7 +61,7 @@ class TextInput(KeyCaptureDrawable):
         self.bypass_if_activated = False  # ignore q press to quit the program, and such inputs
         self._width = width  # maximum width
         self._text: str = ""
-        self.palette = palette
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
         self._current_col = 0  # current column in line
         self._state: int = -1  # state of the text box -1: unfocused, 0: hover, 1: active
         self._is_drawing_cursor: bool = False  # whether the cursor should be drawn
@@ -99,10 +99,10 @@ class TextInput(KeyCaptureDrawable):
         t = self._text[self._scroll_x : self._scroll_x + self._width]
         if self._state == -1:  # unfocused
             dl = Drawable.get_str_fixed_size(t, self._width)
-            Drawable.draw_str([AttrStr(dl)], window, y, x, [], self.palette.text_edit_inactive)
+            Drawable.draw_str([AttrStr(dl)], window, y, x, [], self._get_palette_bypass().text_edit_inactive)
         elif self._state == 0:  # hover
             dl = Drawable.get_str_fixed_size(t, self._width)
-            Drawable.draw_str([AttrStr(dl)], window, y, x, [], self.palette.text_edit_hover)
+            Drawable.draw_str([AttrStr(dl)], window, y, x, [], self._get_palette_bypass().text_edit_hover)
         else:  # active
             if self._max_length > 0 and self._is_drawing_cursor:
                 dl = Drawable.get_str_fixed_size(t, self._width)
@@ -118,7 +118,7 @@ class TextInput(KeyCaptureDrawable):
                         y,
                         x,
                         [],
-                        self.palette.text_edit_text,
+                        self._get_palette_bypass().text_edit_text,
                     )
                     # draw the cursor separately (bold)
                     Drawable.draw_str(
@@ -127,19 +127,19 @@ class TextInput(KeyCaptureDrawable):
                         y,
                         x + self._current_col,
                         [curses.A_BOLD, curses.A_UNDERLINE],
-                        self.palette.text_edit_cursor,
+                        self._get_palette_bypass().text_edit_cursor,
                     )
                 elif self._current_col + self._scroll_x < len(
                     self._text
                 ):  # if full but inside the line
-                    Drawable.draw_str([AttrStr(dl)], window, y, x, [], self.palette.text_edit_text)
+                    Drawable.draw_str([AttrStr(dl)], window, y, x, [], self._get_palette_bypass().text_edit_text)
                     Drawable.draw_str(
                         [AttrStr(self._text[self._current_col + self._scroll_x])],
                         window,
                         y,
                         x + self._current_col,
                         [curses.A_BOLD, curses.A_UNDERLINE],
-                        self.palette.text_edit_cursor,
+                        self._get_palette_bypass().text_edit_cursor,
                     )  # draw current char in bold
                 else:  # cursor out of bound
                     Drawable.draw_str(
@@ -148,7 +148,7 @@ class TextInput(KeyCaptureDrawable):
                         y,
                         x,
                         [curses.A_UNDERLINE, curses.A_BOLD],
-                        self.palette.text_edit_full,
+                        self._get_palette_bypass().text_edit_full,
                     )
             elif self._max_length <= 0 and self._is_drawing_cursor:
                 it = inserted_text(
@@ -162,7 +162,7 @@ class TextInput(KeyCaptureDrawable):
                     y,
                     x,
                     [],
-                    self.palette.text_edit_text,
+                    self._get_palette_bypass().text_edit_text,
                 )
                 # draw the cursor separately (bold)
                 Drawable.draw_str(
@@ -171,12 +171,12 @@ class TextInput(KeyCaptureDrawable):
                     y,
                     x + self._current_col,
                     [curses.A_BOLD, curses.A_UNDERLINE],
-                    self.palette.text_edit_cursor,
+                    self._get_palette_bypass().text_edit_cursor,
                 )
 
             else:
                 dl = Drawable.get_str_fixed_size(t, self._width)
-                Drawable.draw_str([AttrStr(dl)], window, y, x, [], self.palette.text_edit_text)
+                Drawable.draw_str([AttrStr(dl)], window, y, x, [], self._get_palette_bypass().text_edit_text)
 
     def key_behaviour(self, key: int) -> None:
         if self._state == -1 or self._state == 1:  # if unfocused, object not as capture

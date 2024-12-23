@@ -1,3 +1,5 @@
+# WORK IN PROGRESS !
+
 import curses
 from typing import Callable, List, Optional, Tuple
 
@@ -16,8 +18,9 @@ class WrapperScrollableStackVertical(KeyCaptureDrawable):
         max_displayed_count: int,
         kcd_height: int,
         parent: Drawable | None = None,
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
     ):
+        raise NotImplementedError("This class is not implemented yet. (Work in progress)")
         """TODO: docstr"""
         super().__init__(y, x, parent)
 
@@ -27,7 +30,7 @@ class WrapperScrollableStackVertical(KeyCaptureDrawable):
         self._cursor = 0
 
         self._kcds: List[KeyCaptureDrawable] = []  # List of kcds inside
-        self.palette = palette
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
 
         # self.kcd.capture_goto = (
         #     self._custom_kcd_capture_goto
@@ -109,3 +112,6 @@ class WrapperScrollableStackVertical(KeyCaptureDrawable):
             self.kcd.capture_remove(3)
         else:
             self.capture_goto(origin, direction)
+
+    def set_palette(self, palette, should_override = False) -> None:
+        pass

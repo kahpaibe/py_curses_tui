@@ -2,7 +2,7 @@ import curses
 from typing import List, Optional
 
 from ..utility import cwin, try_self_call
-from .base_classes import AttrStr, Drawable, GenStr
+from .base_classes import AttrStr, Drawable, GenStr, ColorPalette
 
 
 # ==== Drawable objects: props ====
@@ -14,7 +14,7 @@ class Text(Drawable):
         text: GenStr | str,
         y: int,
         x: int,
-        color_pair_id: int = 0,
+        color_pair_id: int | None = None,
         parent: Optional[Drawable] = None,
         width: Optional[int] = 0,
         centered: Optional[bool] = False,
@@ -26,7 +26,7 @@ class Text(Drawable):
             text (GenStr | str): text to draw. Can be a GenStr object or a string.
             y (int): y coordinate
             x (int): x coordinate
-            color_pair_id (int, optional): color pair index. Defaults to 0 = default terminal color pair.
+            color_pair_id (int, optional): color pair index. Defaults to None = default palette text.
             parent (Drawable, optional): parent in hierarchy (e.g. may be used for relative coordinates).
             width (int, optional): width of the text (if centered=True)
             centered (bool, optional): whether the text should be centered. Defaults to False. If True, width should be given.
@@ -93,3 +93,10 @@ class Text(Drawable):
         if self._first_draw:  # supressed before first draw
             if self.on_update:
                 try_self_call(self, self.on_update)
+
+    def set_palette(self, palette: ColorPalette, should_override = True):
+        """Set the color palette. For the Text object, will override the text color."""
+        if should_override:
+            self.color_pair_id = palette.text
+        if self.color_pair_id is None: # Use default palette color if not set
+            self.color_pair_id = palette.text

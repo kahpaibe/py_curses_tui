@@ -26,7 +26,7 @@ class ItemListSubmenu(Submenu):
         items: Optional[List[str]] = [],
         max_items: int = 10,  # max number of items
         parent: Optional[Drawable] = None,
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
     ):
         """A list of items made of textinputs, buttons to remove such items and a button to add an item.
 
@@ -39,7 +39,7 @@ class ItemListSubmenu(Submenu):
             max_items: max number of items. 0: no limit. Defaults to 10.
             items: list of items to be displayed. Defaults to [].
             parent: optional parent drawable.
-            palette: color palette. Defaults to ColorPalette() default color palette.
+            palette: color palette. Defaults to None.
 
         Color palette:
             button_selected: color of the button when selected.
@@ -59,25 +59,26 @@ class ItemListSubmenu(Submenu):
         Accessing item_list_submenu.on_update directly should be avoided
 
         """
-
+        self._first_draw = False  # whether it was drawn once. Sort of init
+        self._palette = None
         super().__init__()
         self.y = y
         self.x = x
         self.width = width
         self.max_items = max_items
-        self.palette = palette
-        self._dummy_parent = Drawable(y, x, parent, palette)  # parent for inside items
+        self._dummy_parent = Drawable(y, x, parent, self._get_palette_bypass())  # parent for inside items
         self._text_inputs: List[TextInput] = []
         self._remove_buttons: List[Button] = []
 
         self._add_button = Button(
-            "Add", 0, 0, self._add_press, self._dummy_parent, self.palette, width, centered=True
+            "Add", 0, 0, self._add_press, self._dummy_parent, self._get_palette_bypass(), width, centered=True
         )
 
         self.on_update: Callable[[Submenu], Any] | None = None
         self._build(items)
 
         self._first_draw = False  # whether it was drawn once. Sort of init
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
 
     def _add_press(self, a: Any = None) -> None:
         self.add_item()
@@ -93,7 +94,7 @@ class ItemListSubmenu(Submenu):
         y = len(self._text_inputs)
         x = 0
         text_input_width = self.width - 1 - len(self.remove_symbol)
-        text_input = TextInput(y, x, text_input_width, 0, self._dummy_parent, self.palette)
+        text_input = TextInput(y, x, text_input_width, 0, self._dummy_parent, self._get_palette_bypass())
         text_input.set_text(value)
 
         def remove(selfo: Any, index: int = i) -> None:
@@ -105,7 +106,7 @@ class ItemListSubmenu(Submenu):
             x + text_input_width + 1,
             remove,
             self._dummy_parent,
-            self.palette,
+            self._get_palette_bypass(),
             len(self.remove_symbol),
             centered=True,
         )
@@ -194,3 +195,8 @@ class ItemListSubmenu(Submenu):
         for ti in self._text_inputs:
             ti.on_update = on_update
         self._add_button.on_update = on_update
+
+    def set_palette(self, palette, should_override = False) -> None:
+        super().set_palette(palette, should_override)
+        for ti in self._text_inputs:
+            ti.set_palette(palette, should_override)

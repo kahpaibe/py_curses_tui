@@ -22,7 +22,7 @@ class Button(KeyCaptureDrawable):
         x: int,
         action: Callable[[Self], Any],
         parent: Drawable | None = None,
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
         width: int = 0,
         centered: bool = True,
     ):
@@ -34,7 +34,7 @@ class Button(KeyCaptureDrawable):
             x (int): x coordinate
             action (Callable): action to execute.
             parent (Drawable, optional): parent in hierarchy (e.g. may be used for relative coordinates).
-            palette (ColorPalette, optional): color palette. Defaults to ColorPalette().
+            palette (ColorPalette, optional): color palette. Defaults to None.
             width (int, optional): width of the button. Defaults to 0. Used for centering.
             centered (bool, optional): whether the text should be centered. Defaults to True. If true, width should be given.
 
@@ -54,7 +54,7 @@ class Button(KeyCaptureDrawable):
         self._selected = False
         self.capture_remove = self._capture_remove
         self.capture_take = self._capture_take
-        self.palette = palette
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
 
         if isinstance(text, str):
             self._width = width if width > 0 else len(text)
@@ -77,7 +77,7 @@ class Button(KeyCaptureDrawable):
                 window,
                 y,
                 x,
-                default_pair_id=self.palette.button_selected,
+                default_pair_id=self._get_palette_bypass().button_selected,
                 attributes=[curses.A_BOLD],
             )
         else:
@@ -86,7 +86,7 @@ class Button(KeyCaptureDrawable):
                 window,
                 y,
                 x,
-                default_pair_id=self.palette.button_unselected,
+                default_pair_id=self._get_palette_bypass().button_unselected,
             )
 
     def key_behaviour(self, key: int) -> None:

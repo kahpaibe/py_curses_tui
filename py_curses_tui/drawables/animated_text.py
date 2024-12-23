@@ -53,6 +53,25 @@ LOADING10 = "|/-\\"
 # ◇◈◆
 LOADING11 = "\u25C7\u25C8\u25C6"
 
+WAVE1 = [
+    "▁▂▃▄▅▆▇█▇▆▅▄▃▂▁",
+    "▁▁▂▃▄▅▆▇█▇▆▅▄▃▂",
+    "▂▁▁▂▃▄▅▆▇█▇▆▅▄▃",
+    "▃▂▁▁▂▃▄▅▆▇█▇▆▅▄",
+    "▄▃▂▁▁▂▃▄▅▆▇█▇▆▅",
+    "▅▄▃▂▁▁▂▃▄▅▆▇█▇▆",
+    "▆▅▄▃▂▁▁▂▃▄▅▆▇█▇",
+    "▇▆▅▄▃▂▁▁▂▃▄▅▆▇█",
+    "█▇▆▅▄▃▂▁▁▂▃▄▅▆▇",
+    "▇█▇▆▅▄▃▂▁▁▂▃▄▅▆",
+    "▆▇█▇▆▅▄▃▂▁▁▂▃▄▅",
+    "▅▆▇█▇▆▅▄▃▂▁▁▂▃▄",
+    "▄▅▆▇█▇▆▅▄▃▂▁▁▂▃",
+    "▃▄▅▆▇█▇▆▅▄▃▂▁▁▂",
+    "▂▃▄▅▆▇█▇▆▅▄▃▂▁▁",
+    "▁▂▃▄▅▆▇█▇▆▅▄▃▂▁",
+]
+
 
 # ==== Drawable objects: props ====
 class AnimatedText(Drawable):
@@ -65,7 +84,7 @@ class AnimatedText(Drawable):
         ui: "UserInterface",
         color_pair_id: int = 0,
         frames: List[AttrStr] | List[str] | str = LOADING1,
-        start_hidden: bool = True,
+        stop_hidden: bool = True,
         parent: Optional[Drawable] = None,
         attributes: List[int] = [],
     ):
@@ -77,7 +96,7 @@ class AnimatedText(Drawable):
             ui (UserInterface): The UserInterface object that the drawable will be drawn on, used to refresh the screen.
             color_pair_id (int, optional): The color pair id of the drawable. Defaults to 0.
             frames (List[AttrStr] | List[str] | str, optional): The frames of the animation. Defaults to LOADING1.
-            start_hidden (bool, optional): Whether the drawable will be hidden at start. Defaults to True.
+            stop_hidden (bool, optional): Whether the drawable will be hidden when stopped. Defaults to True.
             parent (Optional[Drawable], optional): The parent drawable of the object. Defaults to None.
             attributes (List[int], optional): The attributes to add on frames. Defaults to [].
 
@@ -98,7 +117,7 @@ class AnimatedText(Drawable):
             Supressed before first draw.
 
         Example usage:
-            from tuilib.drawables.animated_text import LOADING2
+            from py_curses_tui.drawables.animated_text import LOADING2
             animated_text = AnimatedText(0, 0, ui, 0, LOADING2)
             menu.add(animated_text)
 
@@ -114,13 +133,14 @@ class AnimatedText(Drawable):
         self.attributes = attributes
         self.lock = Lock()
         self._hidden = True
+        self._stop_hidden = stop_hidden
 
         self._ui = ui
         self._current_frame = 0
         self.frames: List[AttrStr] = []
         self.set_frames(frames)
 
-        self._first_draw = start_hidden  # whether it was drawn once. Sort of init
+        self._first_draw = False  # whether it was drawn once. Sort of init
 
         with self.lock:
             self._running = False
@@ -141,7 +161,7 @@ class AnimatedText(Drawable):
 
     def draw_frame(self, window: cwin, frame_index: int) -> None:
         """Draw given frame"""
-        if self._hidden:
+        if self._hidden and self._stop_hidden:
             return
         with self.lock:
             if not self._first_draw:
@@ -236,3 +256,8 @@ class AnimatedText(Drawable):
 
         if self._first_draw and self.on_update:
             try_self_call(self, self.on_update)
+
+    def is_running(self) -> bool:
+        """Check if the animation is running."""
+        with self.lock:
+            return self._running
