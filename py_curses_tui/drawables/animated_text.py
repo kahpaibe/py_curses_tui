@@ -4,7 +4,7 @@ from time import sleep
 from typing import TYPE_CHECKING, Any, Callable, List, Optional
 
 from ..utility import cwin, try_self_call
-from .base_classes import AttrStr, Drawable, GenStr
+from .base_classes import AttrStr, Drawable, GenStr, ColorPalette
 
 if TYPE_CHECKING:
     from ..core import UserInterface
@@ -82,7 +82,7 @@ class AnimatedText(Drawable):
         y: int,
         x: int,
         ui: "UserInterface",
-        color_pair_id: int = 0,
+        color_pair_id: int | None = None,
         frames: List[AttrStr] | List[str] | str = LOADING1,
         stop_hidden: bool = True,
         parent: Optional[Drawable] = None,
@@ -94,7 +94,7 @@ class AnimatedText(Drawable):
             y (int): The y coordinate of the top-left corner of the drawable.
             x (int): The x coordinate of the top-left corner of the drawable.
             ui (UserInterface): The UserInterface object that the drawable will be drawn on, used to refresh the screen.
-            color_pair_id (int, optional): The color pair id of the drawable. Defaults to 0.
+            color_pair_id (int, optional): color pair index. Defaults to None = default palette text.
             frames (List[AttrStr] | List[str] | str, optional): The frames of the animation. Defaults to LOADING1.
             stop_hidden (bool, optional): Whether the drawable will be hidden when stopped. Defaults to True.
             parent (Optional[Drawable], optional): The parent drawable of the object. Defaults to None.
@@ -261,3 +261,10 @@ class AnimatedText(Drawable):
         """Check if the animation is running."""
         with self.lock:
             return self._running
+
+    def set_palette(self, palette: ColorPalette, should_override = True):
+        """Set the color palette. For the Text object, will override the text color."""
+        if should_override:
+            self.color_pair_id = palette.text
+        if self.color_pair_id is None: # Use default palette color if not set
+            self.color_pair_id = palette.text

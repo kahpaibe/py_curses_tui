@@ -140,7 +140,8 @@ def wrapped_main(stdscr: UI.cwin, logger: logging.Logger = None) -> None:
             menu_d1_animated_text.stop()
         else:
             menu_d1_animated_text.start(0.1)
-    menu_d1_button_animated_text = UI.Button("Toggle animation", 1, 0, toggle_animated_text, parent=menu_d1_animated_text_text)
+        
+    menu_d1_button_animated_text = UI.Button("Toggle animation", 2, 0, toggle_animated_text, parent=menu_d1_animated_text_text)
     menu_d1.add_key_capture_drawable(menu_d1_button_animated_text,1)
 
     # = KeyCaptureDrawables 1 menu =
