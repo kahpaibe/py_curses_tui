@@ -7,9 +7,14 @@ Library based on curses for creating terminal-based user interfaces (TUI). Cross
 - `Python 3.11+`
 - `curses` (`windows-curses` on windows, `ncurses` on linux)
 
-# How to use
+# How to use and Demo
 
 Please refer to the `example.py` file for a simple example of how to use the library.
+
+[Animated Demo](https://asciinema.org/a/9U9XxahlhAz84xSAxg4PI2o1r)
+
+[![asciicast](https://asciinema.org/a/9U9XxahlhAz84xSAxg4PI2o1r.svg)](https://asciinema.org/a/9U9XxahlhAz84xSAxg4PI2o1r)
+
 
 ## Main concepts
 
