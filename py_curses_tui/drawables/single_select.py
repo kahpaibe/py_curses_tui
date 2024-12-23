@@ -25,7 +25,7 @@ class SingleSelect(KeyCaptureDrawable):
         y: int,
         x: int,
         choices: list[Choice],
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
         parent: Optional[Drawable] = None,
     ):
         """A list of choices, with only one selectable at a time.
@@ -34,7 +34,7 @@ class SingleSelect(KeyCaptureDrawable):
             y (int): y coordinate
             x (int): x coordinate
             choices (list[Choice]): list of choices
-            palette (ColorPalette, optional): color palette. Defaults to ColorPalette().
+            palette (ColorPalette, optional): color palette. Defaults to None.
             parent (Drawable, optional): parent in hierarchy (e.g. may be used for relative coordinates).
 
         Color palette:
@@ -58,7 +58,7 @@ class SingleSelect(KeyCaptureDrawable):
         self._choices = choices
         self._selected = 0  # default selection
         self._cursor = -1  # cursor ("mouse" over) position # starting at -1 not that bad !
-        self.palette = palette
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
 
         self.capture_take = self._capture_take
         self.capture_remove = self._capture_remove
@@ -114,9 +114,9 @@ class SingleSelect(KeyCaptureDrawable):
         y, x = self.get_yx()
         if len(self._choices) == 0:  # if empty
             if self._cursor == -1:
-                Drawable.draw_str(GenStr(" "), window, y, x, [], self.palette.text)
+                Drawable.draw_str(GenStr(" "), window, y, x, [], self._get_palette_bypass().text)
             else:  # hover
-                Drawable.draw_str(GenStr(" "), window, y, x, [], self.palette.cursor)
+                Drawable.draw_str(GenStr(" "), window, y, x, [], self._get_palette_bypass().cursor)
             return
 
         for i, choice in enumerate(self._choices):
@@ -124,9 +124,9 @@ class SingleSelect(KeyCaptureDrawable):
             gs += choice.text
 
             if i == self._cursor:
-                Drawable.draw_str(gs, window, i + y, x, [curses.A_BOLD], self.palette.cursor)
+                Drawable.draw_str(gs, window, i + y, x, [curses.A_BOLD], self._get_palette_bypass().cursor)
             else:
-                Drawable.draw_str(gs, window, i + y, x, [], self.palette.text)
+                Drawable.draw_str(gs, window, i + y, x, [], self._get_palette_bypass().text)
 
     def key_behaviour(self, key: int) -> None:
         if len(self._choices) == 0:  # if empty

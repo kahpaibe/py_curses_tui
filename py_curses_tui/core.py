@@ -130,8 +130,8 @@ class Menu(DrawableContainer):
             palette (Optional[ColorPalette], optional): color palette. Defaults to ColorPalette().
             default_selected (Tuple[submenu:int, id:int], optional): default selected object. Defaults to (0, 0).
         """
-        super().__init__(0, 0, None, palette)
         self._submenus: List[Submenu] = []  # submenus
+        super().__init__(0, 0, None, palette)
         self.selected_submenu = 0  # selected submenu
         self._default_selected = default_selected
         self._first_draw = False  # whether it was drawn once. Sort of init
@@ -230,8 +230,7 @@ class Menu(DrawableContainer):
             menu.add_key_capture_drawable(obj)"""
         if not kcd.parent:
             kcd.parent = self  # container is parent
-        if kcd.palette is None:
-            kcd.palette = palette  # set palette container palette for child
+        kcd.set_palette(palette if palette else self.get_palette(), False)
 
         try:
             self._submenus[submenu].add(kcd)
@@ -348,6 +347,11 @@ class Menu(DrawableContainer):
         if sb._selected < 0:
             return None
         return sb._kcds[sb._selected]
+    
+    def set_palette(self, palette, should_override = True):
+        super().set_palette(palette, should_override)
+        for submenu in self._submenus:
+            submenu.set_palette(palette, should_override)
 
 
 class UserInterface:
@@ -826,7 +830,7 @@ class UserInterface:
             m.add(Text(line, i + 1, 2, palette.text, width=w - 4, centered=True, parent=box))
 
         # == Add buttons ==
-        textinput = TextInput(h - 4, 2, width=self.input_max_length, parent=box, palette=palette)
+        textinput = TextInput(h - 4, 2, width=min(w-4,self.input_max_length), max_length=self.input_max_length, parent=box, palette=palette)
         textinput.activate()  # activate the textinput
         m.add_key_capture_drawable(textinput, submenu=0)
         m.add_key_capture_drawable(

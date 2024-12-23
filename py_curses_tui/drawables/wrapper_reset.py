@@ -15,7 +15,7 @@ class WrapperReset(KeyCaptureDrawable):
         reset_action: Callable[[KeyCaptureDrawable | None], None],
         merge_hitbox: bool = False,
         relative_position: Tuple[int, int] = (0, -2),
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
     ):
         """A wrapper kcd to add a reset button to a kcd.
 
@@ -24,7 +24,7 @@ class WrapperReset(KeyCaptureDrawable):
             reset_action (Callable[[KeyCaptureDrawable | None], None]): The action to perform when the reset button is pressed.
             merge_hitbox (bool, optional): Whether the hitboxes of the kcd and the reset button should be merged (False means using the kcd's hitbox directly). Defaults to False.
             relative_position (Tuple[y:int, x:int], optional): The relative position of the reset button to the kcd. Defaults to (0, -2).
-            palette (Optional[ColorPalette], optional): The color palette to use. Defaults to ColorPalette().
+            palette (Optional[ColorPalette], optional): The color palette to use. Defaults to None.
 
         ColorPalette:
             button_selected: The color of the reset button when selected.
@@ -39,10 +39,10 @@ class WrapperReset(KeyCaptureDrawable):
             menu.add_key_capture_drawable(dropdown_with_reset, 0)
         """
         y, x = relative_position
+        self.kcd = kcd
         super().__init__(y, x, kcd)
 
-        self.palette = palette
-        self.kcd = kcd
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
         # self.kcd.x += 2  # Move the kcd to the right
         self.reset_action = reset_action
         self.merge_hitbox = merge_hitbox  # if hitboxes should be merged
@@ -61,9 +61,9 @@ class WrapperReset(KeyCaptureDrawable):
         y, x = self.get_yx()
 
         if self.state == 2:  # reset button selected
-            Drawable.draw_str(GenStr(("\u27F2 ", self.palette.button_selected)), window, y, x)
+            Drawable.draw_str(GenStr(("\u27F2 ", self._get_palette_bypass().button_selected)), window, y, x)
         else:  # reset button not selected
-            Drawable.draw_str(GenStr((("\u27F2 ", self.palette.button_unselected))), window, y, x)
+            Drawable.draw_str(GenStr((("\u27F2 ", self._get_palette_bypass().button_unselected))), window, y, x)
 
     def key_behaviour(self, key: int) -> None:
         if self.state == 1:  # kcd selected
@@ -123,3 +123,10 @@ class WrapperReset(KeyCaptureDrawable):
             self.kcd.capture_remove(3)
         else:
             self.capture_goto(origin, direction)
+
+    def set_palette(self, palette, should_override = False) -> None:
+        super().set_palette(palette, should_override)
+        self.kcd.set_palette(palette, should_override)
+    
+    def get_palette(self) -> ColorPalette:
+        return self.kcd.get_palette()

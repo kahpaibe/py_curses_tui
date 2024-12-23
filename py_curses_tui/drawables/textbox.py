@@ -23,7 +23,7 @@ class TextBox(KeyCaptureDrawable):
         height: int = 1,
         line_length_bounded: bool = False,
         parent: Drawable | None = None,
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
     ):
         """An editable text box. Can be used to input text.
 
@@ -34,7 +34,7 @@ class TextBox(KeyCaptureDrawable):
             height (int, optional): height of the text box. Defaults to 1.
             line_length_bounded (bool, optional): whether the lines are bounded by the width. Defaults to False.
             parent (Drawable, optional): parent in hierarchy (e.g. may be used for relative coordinates).
-            palette (ColorPalette, optional): color palette. Defaults to ColorPalette().
+            palette (ColorPalette, optional): color palette. Defaults to None.
 
         Supported keys:
             - printable characters : write character at cursor position
@@ -67,7 +67,7 @@ class TextBox(KeyCaptureDrawable):
         self._width = width  # maximum width
         self._height = height  # maximum height
         self._texts: List[str] = [""] * height  # list of lines
-        self.palette = palette
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
         self._current_line = 0  # current line
         self._current_col = 0  # current column in line
         self._state: int = -1  # state of the text box -1: unfocused, 0: hover, 1: active
@@ -123,12 +123,12 @@ class TextBox(KeyCaptureDrawable):
             for i, line in enumerate(self._texts):
                 dl = Drawable.get_str_fixed_size(line, self._width)
                 dltext = [AttrStr(dl, None)]
-                Drawable.draw_str(dltext, window, y + i, x, [], self.palette.text_edit_inactive)
+                Drawable.draw_str(dltext, window, y + i, x, [], self._get_palette_bypass().text_edit_inactive)
         elif self._state == 0:  # hover
             for i, line in enumerate(self._texts):
                 dl = Drawable.get_str_fixed_size(line, self._width)
                 dltext = [AttrStr(dl, None)]
-                Drawable.draw_str(dltext, window, y + i, x, [], self.palette.text_edit_hover)
+                Drawable.draw_str(dltext, window, y + i, x, [], self._get_palette_bypass().text_edit_hover)
         else:  # active
             if self._is_drawing_cursor:
                 for i, line in enumerate(self._texts):
@@ -145,7 +145,7 @@ class TextBox(KeyCaptureDrawable):
                             y + i,
                             x,
                             [],
-                            self.palette.text_edit_text,
+                            self._get_palette_bypass().text_edit_text,
                         )
                         # draw the cursor separately (bold)
                         Drawable.draw_str(
@@ -154,18 +154,18 @@ class TextBox(KeyCaptureDrawable):
                             y + i,
                             x + self._current_col,
                             [curses.A_BOLD, curses.A_UNDERLINE],
-                            self.palette.text_edit_cursor,
+                            self._get_palette_bypass().text_edit_cursor,
                         )
                     elif i == self._current_line and self._current_col < len(self._texts[i]):
-                        t = [AttrStr(dl, self.palette.text_edit_text)]
-                        Drawable.draw_str(t, window, y + i, x, [], self.palette.text_edit_text)
+                        t = [AttrStr(dl, self._get_palette_bypass().text_edit_text)]
+                        Drawable.draw_str(t, window, y + i, x, [], self._get_palette_bypass().text_edit_text)
                         Drawable.draw_str(
-                            [AttrStr(line[self._current_col], self.palette.text_edit_cursor)],
+                            [AttrStr(line[self._current_col], self._get_palette_bypass().text_edit_cursor)],
                             window,
                             y + i,
                             x + self._current_col,
                             [curses.A_BOLD, curses.A_UNDERLINE],
-                            self.palette.text_edit_cursor,
+                            self._get_palette_bypass().text_edit_cursor,
                         )  # draw current char in bold
                     elif i == self._current_line:  # cursor out of bound
                         Drawable.draw_str(
@@ -174,17 +174,17 @@ class TextBox(KeyCaptureDrawable):
                             y + i,
                             x,
                             [curses.A_UNDERLINE, curses.A_BOLD],
-                            self.palette.text_edit_full,
+                            self._get_palette_bypass().text_edit_full,
                         )
                     else:
                         Drawable.draw_str(
-                            [AttrStr(dl)], window, y + i, x, [], self.palette.text_edit_text
+                            [AttrStr(dl)], window, y + i, x, [], self._get_palette_bypass().text_edit_text
                         )
             else:
                 for i, line in enumerate(self._texts):
                     dl = Drawable.get_str_fixed_size(line, self._width)
                     Drawable.draw_str(
-                        [AttrStr(dl)], window, y + i, x, [], self.palette.text_edit_text
+                        [AttrStr(dl)], window, y + i, x, [], self._get_palette_bypass().text_edit_text
                     )
 
     def _draw_unbounded(self, window: cwin) -> None:
@@ -196,13 +196,13 @@ class TextBox(KeyCaptureDrawable):
                 t = line[sx:]
                 dl = Drawable.get_str_fixed_size(t, self._width)
                 dltext = [AttrStr(dl, None)]
-                Drawable.draw_str(dltext, window, y + i, x, [], self.palette.text_edit_inactive)
+                Drawable.draw_str(dltext, window, y + i, x, [], self._get_palette_bypass().text_edit_inactive)
         elif self._state == 0:  # hover
             for i, line in enumerate(self._texts):
                 t = line[sx:]
                 dl = Drawable.get_str_fixed_size(t, self._width)
                 dltext = [AttrStr(dl, None)]
-                Drawable.draw_str(dltext, window, y + i, x, [], self.palette.text_edit_hover)
+                Drawable.draw_str(dltext, window, y + i, x, [], self._get_palette_bypass().text_edit_hover)
         else:  # active
             if self._is_drawing_cursor:
                 for i, line in enumerate(self._texts):
@@ -222,7 +222,7 @@ class TextBox(KeyCaptureDrawable):
                             y + i,
                             x,
                             [],
-                            self.palette.text_edit_text,
+                            self._get_palette_bypass().text_edit_text,
                         )
                         # draw the cursor separately (bold)
                         Drawable.draw_str(
@@ -231,17 +231,17 @@ class TextBox(KeyCaptureDrawable):
                             y + i,
                             x + self._current_col,
                             [curses.A_BOLD, curses.A_UNDERLINE],
-                            self.palette.text_edit_cursor,
+                            self._get_palette_bypass().text_edit_cursor,
                         )
                     else:
                         Drawable.draw_str(
-                            [AttrStr(dl)], window, y + i, x, [], self.palette.text_edit_text
+                            [AttrStr(dl)], window, y + i, x, [], self._get_palette_bypass().text_edit_text
                         )
             else:
                 for i, line in enumerate(self._texts):
                     dl = Drawable.get_str_fixed_size(line, self._width)
                     Drawable.draw_str(
-                        [AttrStr(dl)], window, y + i, x, [], self.palette.text_edit_text
+                        [AttrStr(dl)], window, y + i, x, [], self._get_palette_bypass().text_edit_text
                     )
 
     def key_behaviour(self, key: int) -> None:

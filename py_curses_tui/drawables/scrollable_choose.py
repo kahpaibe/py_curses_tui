@@ -27,7 +27,7 @@ class ScrollableChoose(KeyCaptureDrawable):
         x: int,
         height: int,
         choices: list[Choice],
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
         scroll_type: int = 0,
         parent: Drawable | None = None,
     ):
@@ -37,7 +37,7 @@ class ScrollableChoose(KeyCaptureDrawable):
             y (int): y coordinate
             x (int): x coordinate
             choices (list[Choice]): list of choices
-            palette (ColorPalette, optional): color palette. Defaults to ColorPalette().
+            palette (ColorPalette, optional): color palette. Defaults to None.
             scroll_type (int, optional default=0) 0: no scroll bar, 1: basic scroll bar, 2: arrows
             parent (Drawable, optional): parent in hierarchy (e.g. may be used for relative coordinates).
 
@@ -64,7 +64,7 @@ class ScrollableChoose(KeyCaptureDrawable):
             -1
         )  # cursor ("mouse" over) position # starting at -1 not that bad !
         self._scroll_type = scroll_type
-        self.palette = palette
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
 
         self.capture_take = self._capture_take
         self.capture_remove = self._capture_remove
@@ -107,6 +107,12 @@ class ScrollableChoose(KeyCaptureDrawable):
         """Get current selected choice index"""
         return self._cursor + self._scroll
 
+    def get_choice(self) -> Choice | None:
+        """Get current selected choice"""
+        if self._cursor == -1:
+            return None
+        return self._choices[self._cursor + self._scroll]
+
     def set_choice(self, index: int) -> None:
         """Set current selected choice index"""
         if index < 0 or index >= len(self._choices):
@@ -127,14 +133,14 @@ class ScrollableChoose(KeyCaptureDrawable):
                 yf = y + i
                 if i == self._cursor:
                     Drawable.draw_str(
-                        text, window, yf, xf, [curses.A_BOLD], self.palette.cursor
+                        text, window, yf, xf, [curses.A_BOLD], self._get_palette_bypass().cursor
                     )
                 else:
-                    Drawable.draw_str(text, window, yf, xf, [], self.palette.text)
+                    Drawable.draw_str(text, window, yf, xf, [], self._get_palette_bypass().text)
             if self._scroll_type == 2:  # draw scroll indications
                 if self._scroll > 0:  # arrows
                     Drawable.draw_str(
-                        GenStr(self.arrow_up), window, y, x, [], self.palette.text
+                        GenStr(self.arrow_up), window, y, x, [], self._get_palette_bypass().text
                     )
                 if self._scroll < len(self._choices) - self._height:
                     Drawable.draw_str(
@@ -143,7 +149,7 @@ class ScrollableChoose(KeyCaptureDrawable):
                         y + self._height - 1,
                         x,
                         [],
-                        self.palette.text,
+                        self._get_palette_bypass().text,
                     )
             elif self._scroll_type == 1 and len(self._choices) > 1:  # scrollbar
                 scrollbar_height = int(
@@ -180,14 +186,14 @@ class ScrollableChoose(KeyCaptureDrawable):
                             yf,
                             x,
                             [],
-                            self.palette.scrollbar,
+                            self._get_palette_bypass().scrollbar,
                         )
 
         else:  # empty
             if self._cursor == -1:
-                Drawable.draw_str(GenStr(" "), window, y, x, [], self.palette.text)
+                Drawable.draw_str(GenStr(" "), window, y, x, [], self._get_palette_bypass().text)
             else:  # hover
-                Drawable.draw_str(GenStr(" "), window, y, x, [], self.palette.cursor)
+                Drawable.draw_str(GenStr(" "), window, y, x, [], self._get_palette_bypass().cursor)
 
     def key_behaviour(self, key: int) -> None:
         if len(self._choices) == 0:

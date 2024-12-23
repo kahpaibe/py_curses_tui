@@ -52,7 +52,7 @@ class FileExplorer(ScrollableChoose):
         ui: Optional["UserInterface"] = None,
         filter_: Optional[List[str]] = [],
         show_dim_files: bool = True,
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
         parent: Drawable | None = None,
     ):
         """A simple file explorer widget.
@@ -68,7 +68,7 @@ class FileExplorer(ScrollableChoose):
             ui (UserInterface, optional): UserInterface object. Defaults to None.
             filter_ (List[str], optional): list of file extensions to allow. filter_ = [] disables filtering. Defaults to [].
             show_dim_files (bool, optional): if True and dir_mode = True, files will be shown with dim color even in directory mode. Defaults to True.
-            palette (ColorPalette, optional): color palette. Defaults to ColorPalette().
+            palette (ColorPalette, optional): color palette. Defaults to None.
             parent (Drawable, optional): parent in hierarchy (e.g. may be used for relative coordinates).
 
         Color palette:
@@ -101,6 +101,10 @@ class FileExplorer(ScrollableChoose):
         self._dummy_parent = Drawable(
             0, 0, parent
         )  # dummy parent to have working relative coordinates
+        self._selected_text = Text(
+            "", y + height, x, 0, self._dummy_parent # Color id set later by self.set_palette()
+        )
+        self._path_text = Text("", y, x, 0, self._dummy_parent) # Color id set later by self.set_palette()
         super().__init__(y + 1, x, 1, [], palette, 1, self._dummy_parent)
         self._width, self._height = width, height - 1  # limit the width of the texts
         self._ui = ui
@@ -120,10 +124,6 @@ class FileExplorer(ScrollableChoose):
 
         self._path = pathlib.Path(default_path).resolve()  # default to home
 
-        self._selected_text = Text(
-            "", y + height, x, palette.file_explorer_selected, self._dummy_parent
-        )
-        self._path_text = Text("", y, x, palette.file_explorer_path, self._dummy_parent)
         self._set_path_text_value(str(self._path))
         self._items: List[str] = []  # list of items in the current directory
         self._build_choices()
@@ -161,7 +161,7 @@ class FileExplorer(ScrollableChoose):
     def _build_choices(self) -> None:
         """List files and directories in the current directory."""
         self.clear_choices()
-        gsdd = GenStr((f"{self.directory_symbol}..", self.palette.file_explorer_dots))
+        gsdd = GenStr((f"{self.directory_symbol}..", self._get_palette_bypass().file_explorer_dots))
         self.add_choice(Choice(gsdd, self._go_up))
         if self._show_current_directory:
 
@@ -171,7 +171,7 @@ class FileExplorer(ScrollableChoose):
             gsd = GenStr(
                 (
                     f"{self.directory_symbol}" + "{select current directory}",
-                    self.palette.file_explorer_dots,
+                    self._get_palette_bypass().file_explorer_dots,
                 )
             )
             self.add_choice(Choice(gsd, dot_action))
@@ -189,20 +189,20 @@ class FileExplorer(ScrollableChoose):
         if not self._hide_directories:  # directories first, files next
             for directory in sorted(directories):
                 t = GenStr(
-                    (self.directory_symbol, self.palette.file_explorer_directory),
+                    (self.directory_symbol, self._get_palette_bypass().file_explorer_directory),
                     (
                         directory[: self._width - len(self.directory_symbol)],
-                        self.palette.file_explorer_directory,
+                        self._get_palette_bypass().file_explorer_directory,
                     ),
                 )
                 self.add_choice(Choice(t, self._goto_directory), directory)
         if not self._hide_files:
             for file in sorted(files):
                 t = GenStr(
-                    (self.file_symbol, self.palette.file_explorer_file),
+                    (self.file_symbol, self._get_palette_bypass().file_explorer_file),
                     (
                         file[: self._width - len(self.file_symbol)],
-                        self.palette.file_explorer_file,
+                        self._get_palette_bypass().file_explorer_file,
                     ),
                 )
 
@@ -215,10 +215,10 @@ class FileExplorer(ScrollableChoose):
             if self._show_dim_files:  # dim files
                 for file in sorted(files):
                     t = GenStr(
-                        (self.file_symbol, self.palette.file_explorer_dim),
+                        (self.file_symbol, self._get_palette_bypass().file_explorer_dim),
                         (
                             file[: self._width - len(self.file_symbol)],
-                            self.palette.file_explorer_dim,
+                            self._get_palette_bypass().file_explorer_dim,
                         ),
                     )
                     self.add_choice(Choice(t, None), file)
@@ -231,10 +231,10 @@ class FileExplorer(ScrollableChoose):
         drives = list_volumes()
         for drive in drives:
             t = GenStr(
-                (self.volume_symbol, self.palette.file_explorer_directory),
+                (self.volume_symbol, self._get_palette_bypass().file_explorer_directory),
                 (
                     drive[: self._width - len(self.volume_symbol)],
-                    self.palette.file_explorer_directory,
+                    self._get_palette_bypass().file_explorer_directory,
                 ),
             )
 
@@ -352,3 +352,10 @@ class FileExplorer(ScrollableChoose):
     def _capture_remove(self, direction: int) -> None:
         super()._capture_remove(direction)
         self._selected_text.set_text("")
+
+    def set_palette(self, palette, should_override = False) -> None: # Override
+        """Set the color palette."""
+        super().set_palette(palette, should_override)
+        self._selected_text.set_palette(palette, should_override)
+        self._path_text.set_palette(palette, should_override)
+    

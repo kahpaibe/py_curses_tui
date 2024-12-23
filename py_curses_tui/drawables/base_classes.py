@@ -337,12 +337,12 @@ class Drawable:  # abstract class
         y: int,
         x: int,
         parent: Optional["Drawable"] = None,
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
     ):
         self.x = x  # always local coordinates
         self.y = y
         self.parent: Drawable | None = parent  # parent in hierarchy (e.g. may be used for movement)
-        self.palette = palette
+        self._palette = palette  # color palette
 
         self.on_update: Callable[[Self], Any] | None = (
             None  # Called on respective events. Should be set using .set_on_update(callable)
@@ -383,6 +383,24 @@ class Drawable:  # abstract class
     def set_on_update(self, on_update: Callable[[Self], Any]) -> None:
         """Set the on_update method."""
         self.on_update = on_update
+
+    def set_palette(self, palette: ColorPalette, should_override: bool = True) -> None:
+        """Set the color palette. Used for changing the color palette for some objects."""
+        if should_override:
+            self._palette = palette
+        if self.get_palette() is None:
+            self._palette = palette
+
+
+    def get_palette(self) -> ColorPalette:
+        """Get the color palette."""
+        return self._palette
+    
+    def _get_palette_bypass(self) -> ColorPalette:
+        """Return the color palette used for the init."""
+        if self.get_palette() is None:
+            return ColorPalette()
+        return self.get_palette()
 
     def __eq__(self, obj: object) -> bool:
         return id(self) == id(obj)
@@ -699,11 +717,9 @@ class DrawableContainer(Drawable):
 
         on_update:
             Never called."""
-        self.drawables: List[Drawable] = []
-        if palette is None:
-            palette = ColorPalette()
-        self.palette = palette
         super().__init__(y, x, parent)
+        self.drawables: List[Drawable] = []
+        self.set_palette(palette, False)
 
     def draw(self, window: cwin) -> None:
         for obj in self.drawables:
@@ -716,8 +732,7 @@ class DrawableContainer(Drawable):
     def add(self, obj: Drawable, palette: Optional[ColorPalette] = None) -> None:
         if not obj.parent:
             obj.parent = self  # container is parent
-        if obj.palette is None:
-            obj.palette = palette  # set palette container palette for child
+        obj.set_palette(palette if palette else self.get_palette(), False) # set palette if not already set
         self.drawables.append(obj)
 
     def clear(self) -> None:
@@ -1077,3 +1092,9 @@ class Submenu(Drawable):
         selected_kcd = self._kcds[self._selected]
         selected_kcd.capture_remove(direction)
         self._selected = -1
+
+    def set_palette(self, palette, should_override = True):
+        super().set_palette(palette, should_override)
+        for kcd in self._kcds:
+            kcd.set_palette(palette, should_override)
+    

@@ -15,7 +15,7 @@ class Toggle(KeyCaptureDrawable):
         x: int,
         states: List[str] = ["[ ]", "[X]"],
         parent: Drawable | None = None,
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
     ):
         """A button that can be pressed to execute given action.
 
@@ -25,7 +25,7 @@ class Toggle(KeyCaptureDrawable):
             x (int): x coordinate
             states (List[str], optional): list of states (appearance). Defaults to ["[ ]", "[X]"].
             parent (Drawable, optional): parent in hierarchy (e.g. may be used for relative coordinates).
-            palette (ColorPalette, optional): color palette. Defaults to ColorPalette().
+            palette (ColorPalette, optional): color palette. Defaults to None.
 
         Color palette:
             button_selected: color of the box when selected.
@@ -45,7 +45,7 @@ class Toggle(KeyCaptureDrawable):
         self._states = states
         self.capture_remove = self._capture_remove
         self.capture_take = self._capture_take
-        self.palette = palette
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
 
         self._first_draw = False  # whether it was drawn once. Sort of init
 
@@ -60,7 +60,7 @@ class Toggle(KeyCaptureDrawable):
                 window,
                 y,
                 x,
-                default_pair_id=self.palette.button_selected,
+                default_pair_id=self._get_palette_bypass().button_selected,
             )
         else:
             Drawable.draw_str(
@@ -68,7 +68,7 @@ class Toggle(KeyCaptureDrawable):
                 window,
                 y,
                 x,
-                default_pair_id=self.palette.button_unselected,
+                default_pair_id=self._get_palette_bypass().button_unselected,
             )
 
     def key_behaviour(self, key: int) -> None:
@@ -113,11 +113,15 @@ class Toggle(KeyCaptureDrawable):
                 w = max(len(s) for s in self._states)
                 return Hitbox((y, x), (y, x + w - 1))
 
-    def get_state(self) -> int:
+    def get_state_index(self) -> int:
         """Return current state index."""
         return self._state
+    
+    def get_state(self) -> str:
+        """Return current state."""
+        return self._states[self._state]
 
-    def set_state(self, state: int) -> None:
+    def set_state_index(self, state: int) -> None:
         """Set current state index."""
         if state < 0 or state >= len(self._states):
             raise ValueError("State index out of range.")

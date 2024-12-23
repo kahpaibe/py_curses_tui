@@ -30,7 +30,7 @@ class ScrollableMultiSelect(KeyCaptureDrawable):
         x: int,
         height: int,
         choices: list[Choice],
-        palette: Optional[ColorPalette] = ColorPalette(),
+        palette: Optional[ColorPalette] = None,
         scroll_type: int = 0,
         parent: Drawable | None = None,
     ):
@@ -67,7 +67,7 @@ class ScrollableMultiSelect(KeyCaptureDrawable):
         self._selected = []  # selected choices
         self._cursor = -1  # cursor ("mouse" over) position # starting at -1 not that bad !
         self._scroll_type = scroll_type
-        self.palette = palette
+        self.set_palette(palette, False) # None if not set, should be overwritten when adding to a container
 
         self.capture_take = self._capture_take
         self.capture_remove = self._capture_remove
@@ -110,6 +110,10 @@ class ScrollableMultiSelect(KeyCaptureDrawable):
     def get_selected_indexes(self) -> List[Choice]:
         """Get current selected choices indexes."""
         return self._selected
+    
+    def get_selected_choices(self) -> List[Choice]:
+        """Get current selected choices indexes."""
+        return [self._choices[i] for i in self._selected]
 
     def current_choice_index(self) -> int:
         """Return the index of the current selected choice (cursor)."""
@@ -138,12 +142,12 @@ class ScrollableMultiSelect(KeyCaptureDrawable):
                 xf = x + 1 + len(self.arrow_up)
                 yf = y + i
                 if i == self._cursor:
-                    Drawable.draw_str(gs, window, yf, xf, [curses.A_BOLD], self.palette.cursor)
+                    Drawable.draw_str(gs, window, yf, xf, [curses.A_BOLD], self._get_palette_bypass().cursor)
                 else:
-                    Drawable.draw_str(gs, window, yf, xf, [], self.palette.text)
+                    Drawable.draw_str(gs, window, yf, xf, [], self._get_palette_bypass().text)
             if self._scroll_type == 2:  # draw scroll indications
                 if self._scroll > 0:  # arrows
-                    Drawable.draw_str(GenStr(self.arrow_up), window, y, x, [], self.palette.text)
+                    Drawable.draw_str(GenStr(self.arrow_up), window, y, x, [], self._get_palette_bypass().text)
                 if self._scroll < len(self._choices) - self._height:
                     Drawable.draw_str(
                         GenStr(self.arrow_down),
@@ -151,7 +155,7 @@ class ScrollableMultiSelect(KeyCaptureDrawable):
                         y + self._height - 1,
                         x,
                         [],
-                        self.palette.text,
+                        self._get_palette_bypass().text,
                     )
             elif self._scroll_type == 1 and len(self._choices) > 1:  # scrollbar
                 scrollbar_height = int(
@@ -187,14 +191,14 @@ class ScrollableMultiSelect(KeyCaptureDrawable):
                             yf,
                             x,
                             [],
-                            self.palette.scrollbar,
+                            self._get_palette_bypass().scrollbar,
                         )
 
         else:  # empty
             if self._cursor == -1:
-                Drawable.draw_str(GenStr(" "), window, y, x, [], self.palette.text)
+                Drawable.draw_str(GenStr(" "), window, y, x, [], self._get_palette_bypass().text)
             else:  # hover
-                Drawable.draw_str(GenStr(" "), window, y, x, [], self.palette.cursor)
+                Drawable.draw_str(GenStr(" "), window, y, x, [], self._get_palette_bypass().cursor)
 
     def key_behaviour(self, key: int) -> None:
         if len(self._choices) == 0:
