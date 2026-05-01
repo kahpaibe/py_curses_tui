@@ -1,4 +1,4 @@
-from typing import Iterable, overload, Any, TypeAlias
+from typing import Iterable, overload, Any
 from dataclasses import dataclass
 
 
@@ -7,15 +7,15 @@ class GenStrSection:
     """A section of a GenStr, consisting of text with optional color and attribute."""
 
     text: str
-    color: int | None = None
-    attr: int | None = None
+    color_pair: int | None = None
+    attr: int | None = None # TODO: unused for now
 
     def to_ainsi(self) -> str:
         """Convert the GenStrSection to a string with ANSI escape codes for colors and attributes."""
-        color_code = f"\033[{self.color}m" if self.color is not None else ""
+        color_code = f"\033[{self.color_pair}m" if self.color_pair is not None else ""
         attr_code = f"\033[{self.attr}m" if self.attr is not None else ""
         reset_code = (
-            "\033[0m" if (self.color is not None or self.attr is not None) else ""
+            "\033[0m" if (self.color_pair is not None or self.attr is not None) else ""
         )
         return f"{color_code}{attr_code}{self.text}{reset_code}"
 
@@ -97,14 +97,14 @@ class GenStr(list[GenStrSection]):
                 and isinstance(item[0], str)
                 and (isinstance(item[1], int) or item[1] is None)
             ):
-                return GenStrSection(item[0], color=item[1])
+                return GenStrSection(item[0], color_pair=item[1])
             elif (
                 len(item) == 3
                 and isinstance(item[0], str)
                 and (isinstance(item[1], int) or item[1] is None)
                 and (isinstance(item[2], int) or item[2] is None)
             ):
-                return GenStrSection(item[0], color=item[1], attr=item[2])
+                return GenStrSection(item[0], color_pair=item[1], attr=item[2])
 
         return None  # Invalid item format
 
@@ -356,9 +356,9 @@ if __name__ == "__main__":  # Tests
 
     section("GenStrSection ANSI")
     plain = GenStrSection("plain").to_ainsi()
-    color = GenStrSection("red", color=31).to_ainsi()
+    color = GenStrSection("red", color_pair=31).to_ainsi()
     attr = GenStrSection("bold", attr=1).to_ainsi()
-    color_attr = GenStrSection("red+bold", color=31, attr=1).to_ainsi()
+    color_attr = GenStrSection("red+bold", color_pair=31, attr=1).to_ainsi()
     report("plain section", plain == "plain", f"repr={plain!r}", preview=plain)
     report(
         "color section",
@@ -427,7 +427,7 @@ if __name__ == "__main__":  # Tests
     expect_genstr("left + right", left + right, "L+R!", 4)
     expect_genstr(
         "left + [GenStrSection(...)]",
-        left + [GenStrSection(" sections", color=35)],
+        left + [GenStrSection(" sections", color_pair=35)],
         "L+ sections",
         3,
     )

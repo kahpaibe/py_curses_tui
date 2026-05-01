@@ -3,16 +3,24 @@ from curses import window as cwin
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 from typing import Literal, Optional, override
-from .utils.draw_utils import draw_genstr
-from .genstr import GenStr
 from enum import Enum
+
+from .utils.draw_utils import draw_genstr, draw_fill
+from .genstr import GenStr
+from .utils.colors import (
+    COLOR_PAIRS_BW,
+    ColorPairs,
+    TerminalColors,
+    Palette,
+    PALETTE_BW
+)
 
 # =====================================
 #  Base Classes
 # =====================================
 
 
-class RedrawSignal(Exception):
+class RedrawSignal(Exception): # TODO: to use
     """Exception to signal a redraw of the UI."""
 
 
@@ -32,6 +40,7 @@ class Drawable:
         y: int,
         x: int,
         parent: Optional["Drawable"] = None,
+        palette: Optional[Palette] = None,
     ):
         """A drawable object.
 
@@ -39,10 +48,12 @@ class Drawable:
             y (int): y-coordinate of the Drawable object.
             x (int): x-coordinate of the Drawable object.
             parent (Optional[Drawable]): Parent Drawable object for relative coordinates, such as a Menu or another Drawable. If None, the coordinates are absolute to the window.
+            palette (Optional[Palette]): Color palette to use for the Drawable. If None, the parent's palette is used.
         """
         self.y, self.x = y, x
         self.parent = parent
         self._first_draw = True  # Whether the drawable has been drawn at least once, used to trigger first draw behaviour.
+        self.palette = palette
 
     def _get_y_x(self) -> tuple[int, int]:
         """Get the absolute y and x coordinates of the drawable object, taking into account the parent drawables."""
@@ -87,6 +98,15 @@ class Drawable:
             "Non-capturing Drawable should never receive key input."
         )
 
+    def get_palette(self) -> Palette:
+        """Return the color palette for the drawable."""
+        if self.palette is not None:
+            return self.palette
+        elif self.parent is not None:
+            return self.parent.get_palette()
+        else:
+            return PALETTE_BW # Default palette if no parent and no palette specified.
+
     def _on_first_draw(self) -> None:
         """Behaviour to execute on the first draw of the drawable object."""
         if self._first_draw:
@@ -97,12 +117,20 @@ class Submenu(Drawable):
     """Elementary unit for drawable navigation, draws and control drawables it contains."""
 
     @override
-    def __init__(self, auto_select_capturable_drawable_on_first_draw: Literal[None, "First", "Last"] = None):
+    def __init__(
+        self,
+        palette: Palette | None = None,
+        auto_select_capturable_drawable_on_first_draw: Literal[
+            None, "First", "Last"
+        ] = None,
+    ):
         """A submenu spanning all the window."""
-        super().__init__(0, 0)
+        super().__init__(0, 0, parent=None, palette=palette)
         self.drawables: list[Drawable] = []
         self._selected_drawable_index: int = 0
-        self._auto_select_capturable_drawable_on_first_draw = auto_select_capturable_drawable_on_first_draw
+        self._auto_select_capturable_drawable_on_first_draw = (
+            auto_select_capturable_drawable_on_first_draw
+        )
 
     def select_drawable(self, index: int) -> None:
         """Select a drawable by index. This is the expected way to define the selected drawable on application start."""
@@ -117,7 +145,7 @@ class Submenu(Drawable):
         """
         self._check_selected_drawable()
         return self._selected_drawable_index
-    
+
     @override
     def _on_first_draw(self) -> None:
         if self._auto_select_capturable_drawable_on_first_draw == "First":
@@ -245,10 +273,18 @@ class Submenu(Drawable):
 class Menu(Submenu):
     """A submenu spanning all the window."""
 
+    def __init__(self, palette: Palette | None = None, auto_select_capturable_drawable_on_first_draw: None | Literal['First'] | Literal['Last'] = None):
+        """A menu spanning all the window.
+        
+        Palette:
+            - primary: background color (background of the pair)"""
+        super().__init__(palette=palette, auto_select_capturable_drawable_on_first_draw=auto_select_capturable_drawable_on_first_draw)
+
     @override
     def draw(self, window: cwin) -> None:
         """Draw the menu and its drawables."""
-        # TODO: Draw the menu background
+        palette = self.get_palette()
+        draw_fill(window, 0, 0, curses.LINES, curses.COLS, color_pair=-palette.secondary)
 
         super().draw(window)
 
@@ -256,24 +292,44 @@ class Menu(Submenu):
 class App:
     """Wrapper for the curses window, handles the main loop and user inputs."""
 
-    def __init__(self, menus: list[Menu] = []) -> None:
-        """Wrapper for the curses window, handles the main loop and user inputs."""
+    def __init__(
+        self,
+        terminal_colors: TerminalColors | None = None,
+        color_pairs: ColorPairs = COLOR_PAIRS_BW,
+        menus: list[Menu] = [],
+    ) -> None:
+        """Wrapper for the curses window, handles the main loop and user inputs.
+
+        Args:
+            terminal_colors (TerminalColors | None): Terminal color palette to use. If None, the default terminal colors are used. Default is None.
+            color_pairs (ColorPairs | None): Color pairs to use. Default is COLOR_PAIRS_BW.
+            menus (list[Menu]): List of menus to draw in the application. The selected menu is determined by self.selected_menu, which is 0 by default.
+        """
         self.menus = menus
+        self.terminal_colors = terminal_colors
+        self.color_pairs = color_pairs
+
         self.selected_menu: int = 0
         self._running = False
 
     def draw(self, window: cwin) -> None:
-        """Draw the UI."""
+        """Draw the UI."""    
         self._check_selected_menu()
 
         self.menus[self.selected_menu].draw(window)
         # TODO: Add floating menus
+        
+        # TODO: TEMP
+        draw_genstr(window, 0, 0, GenStr(f"COLS:{curses.COLS}, LINES:{curses.LINES}"), default_color_pair=-1)
 
-    def key_behaviour(self, key: int) -> None:
+    def key_behaviour(self, key: int, window: cwin) -> None:
         """Handle key input."""
         self._check_selected_menu()
 
-        if key == ord("q"):
+        if key == curses.KEY_RESIZE: # Handle terminal resize
+            h, w = window.getmaxyx()
+            curses.resize_term(h, w)
+        elif key == ord("q"):
             self._running = False  # Exit on 'q' key.
             return
 
@@ -281,7 +337,11 @@ class App:
 
     def _on_loop_start(self) -> None:
         """Behaviour to execute on the first draw of the UI."""
+        # Check whether selected menu is valid
         self._check_selected_menu()
+
+        # Colors
+        self._init_colors()
 
     def _check_selected_menu(self) -> None:
         """Check if the selected menu index is valid."""
@@ -290,6 +350,31 @@ class App:
                 raise ValueError("No menus to draw.")
             raise ValueError("Selected menu index out of range.")
 
+    def _init_colors(self) -> None:
+        """Init colors."""
+        curses.start_color()
+        curses.use_default_colors()  # Default terminal colors, to override if custom terminal colors provided.
+        
+        if self.terminal_colors is not None:
+            # Custom terminal colors provided
+            if not curses.can_change_color():
+                raise ValueError(
+                    "Terminal does not support color changes, cannot initialize color palette."
+                )
+            if len(self.terminal_colors) > curses.COLORS:
+                raise ValueError(
+                    f"Too many terminal colors provided ({len(self.terminal_colors)}) for the terminal (max {curses.COLORS})."
+                )
+
+            for i, color in enumerate(self.terminal_colors):
+                curses.init_color(i, color.r, color.g, color.b)
+
+        # Custom color pairs
+        for i, (fg, bg) in enumerate(self.color_pairs):
+            curses.init_pair(
+                i + 1, fg, bg
+            )  # Color pair numbers start from 1 in curses.
+
     def _loop(self, window: cwin) -> None:
         """Main loop of the UI."""
         self._on_loop_start()
@@ -297,17 +382,27 @@ class App:
         self._running = True
         while self._running:
             try:
+                # Draw
+                window.erase()
                 self.draw(window)
+                curses.doupdate()
+                
+                # Key handling
                 key = window.getch()
-                self.key_behaviour(key)
+                self.key_behaviour(key, window)
             except KeyboardInterrupt:
                 self._running = False  # Exit
 
+    def _start_curses(self, window: cwin) -> None:
+        """Wrapped function to start curses application."""
+
+        self._on_loop_start()
+        self._loop(window)
+
     def start(self) -> None:
         """Main loop of the UI."""
-        self._on_loop_start()
 
-        curses.wrapper(self._loop)
+        curses.wrapper(self._start_curses)
 
 
 # =====================================
