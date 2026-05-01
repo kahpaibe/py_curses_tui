@@ -6,7 +6,7 @@ from ..genstr import GenStr
 # =====================================
 #  Elementary drawing utils
 # =====================================
-def apply_color_pair(window: cwin, color_pair: int) -> None:
+def apply_algebraic_color_pair(window: cwin, color_pair: int) -> None:
     """Apply a color pair (algebraic) to a curses window."""
     if color_pair < 0:
         window.attron(curses.A_REVERSE)
@@ -37,10 +37,10 @@ def draw_genstr(
         color_pair = (
             section.color_pair if section.color_pair is not None else default_color_pair
         )
-        attr = section.attr
+        attrs = section.attrs
 
-        apply_color_pair(window, color_pair)
-        if attr is not None:
+        apply_algebraic_color_pair(window, color_pair)
+        for attr in attrs:
             window.attron(attr)
 
         try:
@@ -49,7 +49,7 @@ def draw_genstr(
             pass
 
         remove_color_pair(window, color_pair)
-        if attr is not None:
+        for attr in attrs:
             window.attroff(attr)
 
         drawn_length += len(text)
@@ -59,7 +59,7 @@ def draw_fill(
     window: cwin, y: int, x: int, h: int, w: int, color_pair: int, char: str = " "
 ) -> None:
     """Draw a filled rectangle."""
-    apply_color_pair(window, color_pair)
+    apply_algebraic_color_pair(window, color_pair)
 
     for i in range(h):
         try:

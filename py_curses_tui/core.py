@@ -12,15 +12,15 @@ from .utils.colors import (
     ColorPairs,
     TerminalColors,
     Palette,
-    PALETTE_BW
+    PALETTE_BW,
 )
 
 # =====================================
-#  Base Classes
+#  Helper Classes
 # =====================================
 
 
-class RedrawSignal(Exception): # TODO: to use
+class RedrawSignal(Exception):  # TODO: to use
     """Exception to signal a redraw of the UI."""
 
 
@@ -30,6 +30,11 @@ class KeyBehaviourFlag(Enum):
     SKIPPED = 0  # Key not used (e.g. no key behaviour)
     HANDLED = 1  # Key used (e.g. button press)
     EXIT = -1  # Ask to remove selection (e.g. navigate out)
+
+
+# =====================================
+#  Drawable
+# =====================================
 
 
 class Drawable:
@@ -105,12 +110,17 @@ class Drawable:
         elif self.parent is not None:
             return self.parent.get_palette()
         else:
-            return PALETTE_BW # Default palette if no parent and no palette specified.
+            return PALETTE_BW  # Default palette if no parent and no palette specified.
 
     def _on_first_draw(self) -> None:
         """Behaviour to execute on the first draw of the drawable object."""
         if self._first_draw:
             self._first_draw = False
+
+
+# =====================================
+#  Submenu
+# =====================================
 
 
 class Submenu(Drawable):
@@ -120,17 +130,13 @@ class Submenu(Drawable):
     def __init__(
         self,
         palette: Palette | None = None,
-        auto_select_capturable_drawable_on_first_draw: Literal[
-            None, "First", "Last"
-        ] = None,
+        default_selected: int | Literal["First", "Last"] = "First",
     ):
         """A submenu spanning all the window."""
         super().__init__(0, 0, parent=None, palette=palette)
         self.drawables: list[Drawable] = []
         self._selected_drawable_index: int = 0
-        self._auto_select_capturable_drawable_on_first_draw = (
-            auto_select_capturable_drawable_on_first_draw
-        )
+        self._default_selected: int | Literal["First", "Last"] = default_selected
 
     def select_drawable(self, index: int) -> None:
         """Select a drawable by index. This is the expected way to define the selected drawable on application start."""
@@ -146,20 +152,32 @@ class Submenu(Drawable):
         self._check_selected_drawable()
         return self._selected_drawable_index
 
+    def _select_first_capturable_drawable(self) -> bool:
+        """Select the first capture-able drawable. Returns whether a capture-able drawable was found."""
+        y, x = self._get_y_x()
+        for i, drawable in enumerate(self.drawables):
+            if drawable.capture(y, x):
+                self.select_drawable(i)
+                return True
+        return False
+
+    def _select_last_capturable_drawable(self) -> bool:
+        """Select the last capture-able drawable. Returns whether a capture-able drawable was found."""
+        y, x = self._get_y_x()
+        for i in range(len(self.drawables) - 1, -1, -1):
+            if self.drawables[i].capture(y, x):
+                self.select_drawable(i)
+                return True
+        return False
+
     @override
     def _on_first_draw(self) -> None:
-        if self._auto_select_capturable_drawable_on_first_draw == "First":
-            y, x = self._get_y_x()
-            for i, drawable in enumerate(self.drawables):
-                if drawable.capture(y, x):
-                    self.select_drawable(i)
-                    break
-        elif self._auto_select_capturable_drawable_on_first_draw == "Last":
-            y, x = self._get_y_x()
-            for i in range(len(self.drawables) - 1, -1, -1):
-                if self.drawables[i].capture(y, x):
-                    self.select_drawable(i)
-                    break
+        if self._default_selected == "First":
+            self._select_first_capturable_drawable()
+        elif self._default_selected == "Last":
+            self._select_last_capturable_drawable()
+        else:  # int
+            self.select_drawable(self._default_selected)
 
         return super()._on_first_draw()
 
@@ -183,9 +201,11 @@ class Submenu(Drawable):
         # TODO: for now, temp behaviour
         # Capture the last drawable if coming from the right or below.
         if x_prev > x or (x_prev == x and y_prev > y):
-            self.select_drawable(len(self.drawables) - 1)
+            if not self._select_last_capturable_drawable():
+                return False # Coult not capture
         else:  # Capture the first drawable if coming from the left or above, or if there are no drawables.
-            self.select_drawable(0)
+            if not self._select_first_capturable_drawable():
+                return False
 
         return True  # Accept capture.
 
@@ -270,26 +290,95 @@ class Submenu(Drawable):
             raise ValueError("Selected drawable index out of range.")
 
 
-class Menu(Submenu):
+# =====================================
+#  Menu
+# =====================================
+
+
+class MenuBase(Submenu, ABC):
+    """Base class for menus."""
+
+    @override
+    def key_behaviour(self, key: int) -> KeyBehaviourFlag:
+        # Is itself the main submenu, so exit should be handled carefully
+        flag = super().key_behaviour(key)
+
+        if flag is KeyBehaviourFlag.EXIT:
+            # Try recapturing self
+            y, x = self._get_y_x()
+            if key in (curses.KEY_UP, curses.KEY_LEFT):
+                x+=1 # Try recapturing from end
+            elif key in (curses.KEY_DOWN, curses.KEY_RIGHT):
+                x-=1
+            if self.capture(y, x):
+                return (
+                    KeyBehaviourFlag.HANDLED
+                )  # Successfully recaptured self, exit handled.
+            else:
+                raise ValueError(
+                    "Main menu should always be able to recapture itself when a drawable tries to exit from it."
+                )
+
+        return flag
+
+
+class Menu(MenuBase):
     """A submenu spanning all the window."""
 
-    def __init__(self, palette: Palette | None = None, auto_select_capturable_drawable_on_first_draw: None | Literal['First'] | Literal['Last'] = None):
+    def __init__(
+        self,
+        palette: Palette | None = None,
+        default_selected: int | Literal["First", "Last"] = "First",
+    ):
         """A menu spanning all the window.
-        
+
         Palette:
             - primary: background color (background of the pair)"""
-        super().__init__(palette=palette, auto_select_capturable_drawable_on_first_draw=auto_select_capturable_drawable_on_first_draw)
+        super().__init__(palette, default_selected)
 
     @override
     def draw(self, window: cwin) -> None:
         """Draw the menu and its drawables."""
         palette = self.get_palette()
-        draw_fill(window, 0, 0, curses.LINES, curses.COLS, color_pair=-palette.secondary)
+        draw_fill(
+            window, 0, 0, curses.LINES, curses.COLS, color_pair=-palette.secondary
+        )
 
         super().draw(window)
 
 
-class App:
+# =====================================
+#  Floating Menu
+# =====================================
+
+
+# class MenuFloating(Submenu):
+#     """Floating Menu object."""
+
+#     def __init__(
+#         self,
+#         y: int,
+#         x: int,
+#         h: int,
+#         w: int,
+#         default_selected: int | None = None,
+#         auto_select_capturable_drawable_on_first_draw: Literal[
+#             None, "First", "Last"
+#         ] = None,
+#         palette: Palette | None = None,
+#     ):
+#         """Floating menu object."""
+#         super().__init__(
+#             palette=None, auto_select_capturable_drawable_on_first_draw=None
+#         )
+#         self.y = y
+#         self.x = x
+
+
+# =====================================
+#  Application
+# =====================================
+class Application:
     """Wrapper for the curses window, handles the main loop and user inputs."""
 
     def __init__(
@@ -313,27 +402,35 @@ class App:
         self._running = False
 
     def draw(self, window: cwin) -> None:
-        """Draw the UI."""    
+        """Draw the UI."""
         self._check_selected_menu()
 
         self.menus[self.selected_menu].draw(window)
         # TODO: Add floating menus
-        
+
         # TODO: TEMP
-        draw_genstr(window, 0, 0, GenStr(f"COLS:{curses.COLS}, LINES:{curses.LINES}"), default_color_pair=-1)
+        draw_genstr(
+            window,
+            0,
+            0,
+            GenStr(f"COLS:{curses.COLS}, LINES:{curses.LINES}"),
+            default_color_pair=-1,
+        )
 
     def key_behaviour(self, key: int, window: cwin) -> None:
         """Handle key input."""
         self._check_selected_menu()
 
-        if key == curses.KEY_RESIZE: # Handle terminal resize
+        if key == curses.KEY_RESIZE:  # Handle terminal resize
             h, w = window.getmaxyx()
             curses.resize_term(h, w)
         elif key == ord("q"):
             self._running = False  # Exit on 'q' key.
             return
 
-        self.menus[self.selected_menu].key_behaviour(key)
+        flag = self.menus[self.selected_menu].key_behaviour(key)
+        if flag == KeyBehaviourFlag.EXIT:
+            raise ValueError("A selected menu should never be exited from.")
 
     def _on_loop_start(self) -> None:
         """Behaviour to execute on the first draw of the UI."""
@@ -354,7 +451,7 @@ class App:
         """Init colors."""
         curses.start_color()
         curses.use_default_colors()  # Default terminal colors, to override if custom terminal colors provided.
-        
+
         if self.terminal_colors is not None:
             # Custom terminal colors provided
             if not curses.can_change_color():
@@ -384,9 +481,10 @@ class App:
             try:
                 # Draw
                 window.erase()
+                window.noutrefresh()
                 self.draw(window)
                 curses.doupdate()
-                
+
                 # Key handling
                 key = window.getch()
                 self.key_behaviour(key, window)
