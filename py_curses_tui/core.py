@@ -135,19 +135,19 @@ class Submenu(Drawable):
         """A submenu spanning all the window."""
         super().__init__(0, 0, parent=None, palette=palette)
         self.drawables: list[Drawable] = []
-        self._selected_drawable_index: int = 0
+        self._selected_drawable_index: int | None = None
         self._default_selected: int | Literal["First", "Last"] = default_selected
 
-    def select_drawable(self, index: int) -> None:
+    def select_drawable(self, index: int | None) -> None:
         """Select a drawable by index. This is the expected way to define the selected drawable on application start."""
         self._selected_drawable_index = index
         self._check_selected_drawable()
 
-    def get_selected_drawable_index(self) -> int:
+    def get_selected_drawable_index(self) -> int | None:
         """Get the index of the currently selected drawable.
 
-        Return (int):
-            Index of the currently selected drawable.
+        Return (int | None):
+            Index of the currently selected drawable, or None if no drawable is selected.
         """
         self._check_selected_drawable()
         return self._selected_drawable_index
@@ -159,6 +159,7 @@ class Submenu(Drawable):
             if drawable.capture(y, x):
                 self.select_drawable(i)
                 return True
+        self.select_drawable(None)
         return False
 
     def _select_last_capturable_drawable(self) -> bool:
@@ -206,7 +207,6 @@ class Submenu(Drawable):
         else:  # Capture the first drawable if coming from the left or above, or if there are no drawables.
             if not self._select_first_capturable_drawable():
                 return False
-
         return True  # Accept capture.
 
     @override
@@ -219,7 +219,7 @@ class Submenu(Drawable):
         Return (KeyBehaviourFlag):
             Flag to communicate how the key was handled.
         """
-        if not self.drawables:
+        if not self.drawables or self._selected_drawable_index is None:
             return KeyBehaviourFlag.SKIPPED  # Nothing to do since there is no drawable.
 
         # Check selected drawable validity.
@@ -284,6 +284,9 @@ class Submenu(Drawable):
 
     def _check_selected_drawable(self) -> None:
         """Check whether the selected drawable index is valid."""
+        if self._selected_drawable_index is None:
+            return # No drawable selected, nothing to check.
+
         if self._selected_drawable_index < 0 or self._selected_drawable_index >= len(
             self.drawables
         ):

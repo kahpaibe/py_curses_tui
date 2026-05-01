@@ -66,13 +66,11 @@ class Button(Drawable):
     def capture(self, y_prev: int, x_prev: int) -> bool:
         """Whether the Drawable can be selected."""
         self._is_selected = True
-        print(f"Captured Button at {self._get_y_x()}, {self._is_selected=}")
         return True  # Non-capturing drawable.
     
     def _on_exit(self) -> None:
         """Called when the Drawable is deselected."""
         self._is_selected = False
-        print(f"Exited from Button at {self._get_y_x()}, {self._is_selected=}")
 
     @override
     def key_behaviour(self, key: int) -> KeyBehaviourFlag:
