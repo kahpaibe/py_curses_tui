@@ -1,36 +1,87 @@
-from py_curses_tui.core import App, Menu
+import curses
+
+from py_curses_tui.core import Application, Menu
 from py_curses_tui.genstr import GenStr
 
-from py_curses_tui.drawables import Text, Button
+from py_curses_tui.drawables import Text, Button, Box, Fill, Choose
 from py_curses_tui.utils.colors import (
     TERMINAL_COLORS_BASIC,
     PALETTE_BASIC,
     COLOR_PAIRS_BASIC,
-    Palette
+    Palette,
 )
+
 
 if __name__ == "__main__":
     # ============= Application =============
-    app = App(terminal_colors=TERMINAL_COLORS_BASIC, color_pairs=COLOR_PAIRS_BASIC)
+    app = Application(
+        terminal_colors=TERMINAL_COLORS_BASIC, color_pairs=COLOR_PAIRS_BASIC
+    )
 
-    # ===== Menu 1 =====
-    menu1 = Menu(palette=PALETTE_BASIC, auto_select_capturable_drawable_on_first_draw="First")
-    text1 = Text(
-        GenStr(("Hello, World!"[i-1], i * (-1) ** i, 0) for i in range(1, 13)),
+    W, H = 60, 20
+
+    # ===== Menu Test =====
+    menu_test = Menu(palette=PALETTE_BASIC, default_selected="First")
+
+    menu_text_border = Box(0, 0, 3, W, parent=menu_test, palette=Palette(1, 1, 1))
+    menu_test.add_drawable(menu_text_border)
+    menu_text = Text(GenStr("Drawable test menu"), 1, 1, W - 2, True, parent=menu_test)
+    menu_test.add_drawable(menu_text)
+
+    box_text = Text(GenStr(("Box", None, [curses.A_BOLD])), 4, 0, parent=menu_test)
+    menu_test.add_drawable(box_text)
+    box = Box(1, 0, 4, 15, parent=box_text, palette=Palette(-2, 1, 1))
+    menu_test.add_drawable(box)
+
+    fill_text = Text(GenStr(("Fill", None, [curses.A_BOLD])), 4, 17, parent=menu_test)
+    menu_test.add_drawable(fill_text)
+    fill = Fill(1, 0, 4, 15, parent=fill_text, palette=Palette(-11, 1, 1))
+    menu_test.add_drawable(fill)
+
+    text_text = Text(GenStr(("Text", None, [curses.A_BOLD])), 4, 34, parent=menu_test)
+    menu_test.add_drawable(text_text)
+    text = Text(
+        GenStr(
+            ("This is a text drawable."[i], ((i % 7) + 1) * (-1) ** (i // 8))
+            for i in range(24)
+        ),
         1,
         0,
-        parent=menu1,
+        parent=text_text,
+        palette=Palette(-2, 1, 1),
     )
-    menu1.add_drawable(text1)
+    menu_test.add_drawable(text)
 
-    text2 = Text(GenStr("This is a simple text element."), 1, 0, parent=text1)
-    menu1.add_drawable(text2)
+    button_text = Text(
+        GenStr(("Button", None, [curses.A_BOLD])), 10, 0, parent=menu_test
+    )
+    menu_test.add_drawable(button_text)
+    button = Button(
+        "Click me",
+        1,
+        0,
+        action=lambda button: print("Button clicked!"),
+        parent=button_text,
+        palette=Palette(-11, 1, 1),
+    )
+    menu_test.add_drawable(button)
 
-    button1 = Button("Click me!", 3, 0, parent=text2)
-    menu1.add_drawable(button1)
+    choose_text = Text(
+        GenStr(("Choose", None, [curses.A_BOLD])), 10, 17, parent=menu_test
+    )
+    menu_test.add_drawable(choose_text)
+    choose = Choose(
+        1,
+        0,
+        options=[
+            ("Option 1", lambda choose: print("Option 1 selected!")),
+            ("Option 2", lambda choose: print("Option 2 selected!")),
+            ("Option 3", lambda choose: choose.options.append(("New Option", lambda choose: print("New Option selected!")))),
+        ],
+        parent=choose_text,
+        palette=Palette(-11, 1, 1),
+    )
+    menu_test.add_drawable(choose)
 
-    button2 = Button("Click me!", 2, 0, parent=button1, palette=Palette(3,3,4))
-    menu1.add_drawable(button2)
-
-    app.menus.append(menu1)
+    app.menus.append(menu_test)
     app.start()
