@@ -344,7 +344,7 @@ class Menu(MenuBase):
         """Draw the menu and its drawables."""
         palette = self.get_palette()
         draw_fill(
-            window, 0, 0, curses.LINES, curses.COLS, color_pair=-palette.secondary
+            window, 0, 0, curses.LINES, curses.COLS, color_pair=palette.primary
         )
 
         super().draw(window)
