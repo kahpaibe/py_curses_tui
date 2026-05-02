@@ -19,7 +19,9 @@ class Text(Drawable):
         text: GenStr,
         y: int,
         x: int,
-        parent: Drawable | None = None,
+        width: Optional[int] = None,
+        do_center: bool = False,
+        parent: Optional[Drawable] = None,
         palette: Optional[Palette] = None,
     ) -> None:
         """A simple text element.
@@ -28,6 +30,8 @@ class Text(Drawable):
             - primary: The default color pair for the text, for GenStr sections with no specified color."""
         super().__init__(y, x, parent, palette)
         self.text = text
+        self.width = width
+        self.do_center = do_center
 
     @override
     def draw(self, window) -> None:

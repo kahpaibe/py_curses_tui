@@ -19,7 +19,7 @@ class Fill(Drawable):
         x: int,
         height: int,
         width: int,
-        parent: Drawable | None = None,
+        parent: Optional[Drawable] = None,
         palette: Optional[Palette] = None,
     ) -> None:
         """A simple filled area element.

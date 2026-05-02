@@ -129,7 +129,7 @@ class Submenu(Drawable):
     @override
     def __init__(
         self,
-        palette: Palette | None = None,
+        palette: Optional[Palette] = None,
         default_selected: int | Literal["First", "Last"] = "First",
     ):
         """A submenu spanning all the window."""
@@ -138,7 +138,7 @@ class Submenu(Drawable):
         self._selected_drawable_index: int | None = None
         self._default_selected: int | Literal["First", "Last"] = default_selected
 
-    def select_drawable(self, index: int | None) -> None:
+    def select_drawable(self, index: Optional[int]) -> None:
         """Select a drawable by index. This is the expected way to define the selected drawable on application start."""
         self._selected_drawable_index = index
         self._check_selected_drawable()
@@ -330,7 +330,7 @@ class Menu(MenuBase):
 
     def __init__(
         self,
-        palette: Palette | None = None,
+        palette: Optional[Palette] = None,
         default_selected: int | Literal["First", "Last"] = "First",
     ):
         """A menu spanning all the window.
@@ -386,15 +386,15 @@ class Application:
 
     def __init__(
         self,
-        terminal_colors: TerminalColors | None = None,
+        terminal_colors: Optional[TerminalColors] = None,
         color_pairs: ColorPairs = COLOR_PAIRS_BW,
         menus: list[Menu] = [],
     ) -> None:
         """Wrapper for the curses window, handles the main loop and user inputs.
 
         Args:
-            terminal_colors (TerminalColors | None): Terminal color palette to use. If None, the default terminal colors are used. Default is None.
-            color_pairs (ColorPairs | None): Color pairs to use. Default is COLOR_PAIRS_BW.
+            terminal_colors (Optional[TerminalColors]): Terminal color palette to use. If None, the default terminal colors are used. Default is None.
+            color_pairs (Optional[ColorPairs]): Color pairs to use. Default is COLOR_PAIRS_BW.
             menus (list[Menu]): List of menus to draw in the application. The selected menu is determined by self.selected_menu, which is 0 by default.
         """
         self.menus = menus

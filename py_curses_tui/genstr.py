@@ -1,4 +1,4 @@
-from typing import Iterable, overload, Any
+from typing import Iterable, Optional, overload, Any
 from dataclasses import dataclass, field
 
 
@@ -7,16 +7,14 @@ class GenStrSection:
     """A section of a GenStr, consisting of text with optional color and attribute."""
 
     text: str
-    color_pair: int | None = None
+    color_pair: Optional[int] = None
     attrs: list[int] = field(default_factory=list)
 
     def to_ainsi(self) -> str:
         """Convert the GenStrSection to a string with ANSI escape codes for colors and attributes."""
         color_code = f"\033[{self.color_pair}m" if self.color_pair is not None else ""
         attr_code = "".join(f"\033[{attr}m" for attr in self.attrs)
-        reset_code = (
-            "\033[0m" if (self.color_pair is not None or self.attrs) else ""
-        )
+        reset_code = "\033[0m" if (self.color_pair is not None or self.attrs) else ""
         return f"{color_code}{attr_code}{self.text}{reset_code}"
 
 
@@ -274,6 +272,78 @@ class GenStr(list[GenStrSection]):
         """Print GenStr as a string with ANSI escape codes for colors and attributes."""
         return "".join(section.to_ainsi() for section in self)
 
+    def total_length(self) -> int:
+        """Get the total length of the represented string."""
+        return sum(len(section.text) for section in self)
+
+    @staticmethod
+    def padded_genstr(genstr: "GenStr", length: int) -> "GenStr":
+        """Pad a GenStr with spaces to a total length. Will truncate if the GenStr is longer than the specified length."""
+        current_len = genstr.total_length()
+        if current_len >= length:
+            # Truncate the GenStr to the specified length
+            truncated_sections: list[GenStrSection] = []
+            remaining_len = length
+            for section in genstr:
+                if remaining_len <= 0:
+                    break
+                if len(section.text) <= remaining_len:
+                    truncated_sections.append(section)
+                    remaining_len -= len(section.text)
+                else:
+                    truncated_sections.append(
+                        GenStrSection(
+                            section.text[:remaining_len],
+                            color_pair=section.color_pair,
+                            attrs=section.attrs,
+                        )
+                    )
+                    remaining_len = 0
+            return GenStr(truncated_sections)
+        else:
+            # Pad the GenStr with spaces to the right
+            padding = " " * (length - current_len)
+            return genstr + padding
+
+    def padded(self, length: int) -> "GenStr":
+        """Pad this GenStr with spaces to a total length. Will truncate if this GenStr is longer than the specified length."""
+        return self.padded_genstr(self, length)
+
+    @staticmethod
+    def centered_genstr(genstr: "GenStr", length: int) -> "GenStr":
+        """Center a GenStr with spaces to a total length. Will truncate if the GenStr is longer than the specified length."""
+        current_len = genstr.total_length()
+        if current_len >= length:
+            # Truncate the GenStr to the specified length
+            truncated_sections: list[GenStrSection] = []
+            remaining_len = length
+            for section in genstr:
+                if remaining_len <= 0:
+                    break
+                if len(section.text) <= remaining_len:
+                    truncated_sections.append(section)
+                    remaining_len -= len(section.text)
+                else:
+                    truncated_sections.append(
+                        GenStrSection(
+                            section.text[:remaining_len],
+                            color_pair=section.color_pair,
+                            attrs=section.attrs,
+                        )
+                    )
+                    remaining_len = 0
+            return GenStr(truncated_sections)
+        else:
+            # Pad the GenStr with spaces on both sides to center it
+            total_padding = length - current_len
+            left_padding = total_padding // 2
+            right_padding = total_padding - left_padding
+            return (" " * left_padding) + genstr + (" " * right_padding)
+
+    def centered(self, length: int) -> "GenStr":
+        """Center this GenStr with spaces to a total length. Will truncate if this GenStr is longer than the specified length."""
+        return self.centered_genstr(self, length)
+
 
 if __name__ == "__main__":  # Tests
     import re
@@ -300,7 +370,7 @@ if __name__ == "__main__":  # Tests
     def plain_text(obj: Any) -> str:
         return ansi_re.sub("", ansi_text(obj))
 
-    def report(name: str, ok: bool, detail: str, preview: str | None = None) -> None:
+    def report(name: str, ok: bool, detail: str, preview: Optional[str] = None) -> None:
         stats["total"] += 1
         if ok:
             stats["passed"] += 1
@@ -319,7 +389,9 @@ if __name__ == "__main__":  # Tests
         is_type_ok = isinstance(value, GenStr)
         actual_plain = plain_text(value) if is_type_ok else str(value)
         actual_len = len(value) if is_type_ok else -1
-        ok = is_type_ok and actual_plain == expected_plain and actual_len == expected_len
+        ok = (
+            is_type_ok and actual_plain == expected_plain and actual_len == expected_len
+        )
         actual_ansi = ansi_text(value) if is_type_ok else str(value)
         detail = (
             f"type={type(value).__name__}, plain={actual_plain!r}, len={actual_len}; "
@@ -330,7 +402,11 @@ if __name__ == "__main__":  # Tests
     def expect_raises(name: str, exc_type: type[Exception], fn: Any) -> None:
         try:
             fn()
-            report(name, False, f"expected {exc_type.__name__}, but no exception was raised")
+            report(
+                name,
+                False,
+                f"expected {exc_type.__name__}, but no exception was raised",
+            )
         except exc_type as exc:
             report(name, True, f"raised {exc_type.__name__}: {exc}")
         except Exception as exc:  # pragma: no cover - for debug visibility
@@ -341,7 +417,9 @@ if __name__ == "__main__":  # Tests
             )
 
     section("Initialization")
-    expect_genstr("GenStr(GenStrSection('str'))", GenStr(GenStrSection("str")), "str", 1)
+    expect_genstr(
+        "GenStr(GenStrSection('str'))", GenStr(GenStrSection("str")), "str", 1
+    )
     expect_genstr("GenStr('str')", GenStr("str"), "str", 1)
     expect_genstr("GenStr(('str',))", GenStr(("str",)), "str", 1)
     expect_genstr("GenStr(('str', 31))", GenStr(("str", 31)), "str", 1)
@@ -412,13 +490,17 @@ if __name__ == "__main__":  # Tests
     )
 
     g = GenStr("test")
-    g.extend([
-        "extended 1",
-        ("extended 2",),
-        ("extended 3", 37),
-        ("extended 4", 37, [1]),
-    ])
-    expect_genstr("extend sequence", g, "testextended 1extended 2extended 3extended 4", 5)
+    g.extend(
+        [
+            "extended 1",
+            ("extended 2",),
+            ("extended 3", 37),
+            ("extended 4", 37, [1]),
+        ]
+    )
+    expect_genstr(
+        "extend sequence", g, "testextended 1extended 2extended 3extended 4", 5
+    )
     expect_raises("extend invalid", ValueError, lambda: g.extend([123]))  # type: ignore[list-item]
 
     section("Operators")
@@ -432,7 +514,9 @@ if __name__ == "__main__":  # Tests
         3,
     )
     expect_genstr("left + ' str'", left + " str", "L+ str", 3)
-    expect_genstr("left + (' tuple', 34, [1])", left + (" tuple", 34, [1]), "L+ tuple", 3)
+    expect_genstr(
+        "left + (' tuple', 34, [1])", left + (" tuple", 34, [1]), "L+ tuple", 3
+    )
     expect_genstr(
         "left + iterable",
         left + [(" i1", 33), (" i2", 36, [1])],
@@ -444,6 +528,50 @@ if __name__ == "__main__":  # Tests
     expect_genstr("3 * left", 3 * left, "L+L+L+", 6)
     expect_raises("left + 123", TypeError, lambda: left + 123)  # type: ignore[operator]
     expect_raises("left * '3'", TypeError, lambda: left * "3")  # type: ignore[arg-type]
+
+    section("Padding and Centering")
+    expect_genstr(
+        "padded_genstr pads right",
+        GenStr.padded_genstr(GenStr("test"), 7),
+        "test   ",
+        2,
+    )
+    expect_genstr(
+        "padded_genstr exact length",
+        GenStr.padded_genstr(GenStr("test"), 4),
+        "test",
+        1,
+    )
+    expect_genstr(
+        "padded_genstr truncates long",
+        GenStr.padded_genstr(GenStr("longtext"), 4),
+        "long",
+        1,
+    )
+    expect_genstr(
+        "centered_genstr centers",
+        GenStr.centered_genstr(GenStr("hi"), 6),
+        "  hi  ",
+        3,
+    )
+    expect_genstr(
+        "centered_genstr truncates long",
+        GenStr.centered_genstr(GenStr("overflow"), 5),
+        "overf",
+        1,
+    )
+    expect_genstr(
+        "padded instance helper",
+        GenStr("ok").padded(5),
+        "ok   ",
+        2,
+    )
+    expect_genstr(
+        "centered instance helper",
+        GenStr("ok").centered(5),
+        " ok  ",
+        3,
+    )
 
     print("\n=== Summary ===")
     failed = stats["total"] - stats["passed"]
