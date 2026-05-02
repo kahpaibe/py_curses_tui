@@ -20,7 +20,7 @@ class Text(Drawable):
         y: int,
         x: int,
         width: Optional[int] = None,
-        do_center: bool = False,
+        do_center: bool = False, # Does nothing if width is None.
         parent: Optional[Drawable] = None,
         palette: Optional[Palette] = None,
     ) -> None:
@@ -40,4 +40,11 @@ class Text(Drawable):
         y, x = self._get_y_x()
         palette = self.get_palette()
 
-        draw_genstr(window, y, x, self.text, palette.primary)
+        text_to_draw: GenStr = self.text # Default: base text
+        if self.width is not None:
+            if self.do_center:
+                text_to_draw = text_to_draw.centered(self.width)
+            else:
+                text_to_draw = text_to_draw.padded(self.width)
+
+        draw_genstr(window, y, x, text_to_draw, palette.primary)
