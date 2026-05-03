@@ -33,7 +33,7 @@ class Fill(Drawable):
     @override
     def draw(self, window) -> None:
         """Draw the filled area."""
-        y, x = self._get_y_x()
+        y, x = self.get_y_x()
         palette = self.palette if self.palette else Palette(0, 0, 0)
         draw_fill(window, y, x, self.height, self.width, palette.primary)
         

@@ -33,7 +33,7 @@ class Box(Drawable):
     @override
     def draw(self, window) -> None:
         """Draw the box."""
-        y, x = self._get_y_x()
+        y, x = self.get_y_x()
         palette = self.palette if self.palette else Palette(0, 0, 0)
 
 
