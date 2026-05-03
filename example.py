@@ -3,7 +3,7 @@ import curses
 from py_curses_tui.core import Application, Menu
 from py_curses_tui.genstr import GenStr
 
-from py_curses_tui.drawables import Text, Button, Box, Fill, Choose
+from py_curses_tui.drawables import Text, Button, Box, Fill, Choose, TextDynamic
 from py_curses_tui.utils.colors import (
     TERMINAL_COLORS_BASIC,
     PALETTE_BASIC,
@@ -82,6 +82,16 @@ if __name__ == "__main__":
         palette=Palette(-11, 1, 1),
     )
     menu_test.add_drawable(choose)
+
+    def _dyna_text(td: TextDynamic) -> GenStr:
+        out_str = f"Dynamic text: {app.menus[0]._selected_drawable_index:}"
+
+        
+
+        return GenStr((out_str, -12))
+    
+    dyna_text = TextDynamic(text_getter=_dyna_text, y=10, x=34, parent=menu_test)
+    menu_test.add_drawable(dyna_text)
 
     app.menus.append(menu_test)
     app.start()

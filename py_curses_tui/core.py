@@ -5,8 +5,9 @@ from abc import ABC, abstractmethod
 from typing import Literal, Optional, override
 from enum import Enum
 
-from .utils.draw_utils import draw_genstr, draw_fill
 from .genstr import GenStr
+from .utils.draw_utils import draw_genstr, draw_fill
+from .utils.distance import Direction, distance
 from .utils.colors import (
     COLOR_PAIRS_BW,
     ColorPairs,
@@ -60,11 +61,11 @@ class Drawable:
         self._first_draw = True  # Whether the drawable has been drawn at least once, used to trigger first draw behaviour.
         self.palette = palette
 
-    def _get_y_x(self) -> tuple[int, int]:
+    def get_y_x(self) -> tuple[int, int]:
         """Get the absolute y and x coordinates of the drawable object, taking into account the parent drawables."""
         if self.parent is None:
             return (self.y, self.x)
-        parent_y, parent_x = self.parent._get_y_x()
+        parent_y, parent_x = self.parent.get_y_x()
         return (self.y + parent_y, self.x + parent_x)
 
     @abstractmethod
@@ -152,31 +153,12 @@ class Submenu(Drawable):
         self._check_selected_drawable()
         return self._selected_drawable_index
 
-    def _select_first_capturable_drawable(self) -> bool:
-        """Select the first capture-able drawable. Returns whether a capture-able drawable was found."""
-        y, x = self._get_y_x()
-        for i, drawable in enumerate(self.drawables):
-            if drawable.capture(y, x):
-                self.select_drawable(i)
-                return True
-        self.select_drawable(None)
-        return False
-
-    def _select_last_capturable_drawable(self) -> bool:
-        """Select the last capture-able drawable. Returns whether a capture-able drawable was found."""
-        y, x = self._get_y_x()
-        for i in range(len(self.drawables) - 1, -1, -1):
-            if self.drawables[i].capture(y, x):
-                self.select_drawable(i)
-                return True
-        return False
-
     @override
     def _on_first_draw(self) -> None:
         if self._default_selected == "First":
-            self._select_first_capturable_drawable()
+            self._capture_best_drawable(0, 0, Direction.DOWN)
         elif self._default_selected == "Last":
-            self._select_last_capturable_drawable()
+            self._capture_best_drawable(curses.LINES, curses.COLS, Direction.UP)
         else:  # int
             self.select_drawable(self._default_selected)
 
@@ -191,21 +173,51 @@ class Submenu(Drawable):
         for drawable in self.drawables:
             drawable.draw(window)
 
+    def _capture_best_drawable(
+        self, y_prev: int, x_prev: int, direction: Direction
+    ) -> bool:
+        """Try capturing the best drawable according to distance."""
+
+        # TODO: need for a "exit from" mechanism
+        distances: list[tuple[int, int]] = []
+        for i, drawable in enumerate(self.drawables):
+            d = distance(
+                y_prev,
+                x_prev,
+                *drawable.get_y_x(),
+                direction,
+                curses.LINES,
+                curses.COLS,
+            )
+            distances.append((d, i))
+            print(f"Distance between ({y_prev}, {x_prev}) and drawable {i} at {drawable.get_y_x()} in direction {direction}: {d}")
+
+        distances.sort(key=lambda x: x[0])  # Sort by distance
+        for d, i in distances:
+            if i in (9, 11):
+                print(f"Distance to drawable {i}: {d}")
+
+        # Try capturing the drawables in order of distance until one is captured.
+        for _, i in distances:
+            if self.drawables[i].capture(y_prev, x_prev):
+                self.select_drawable(i)
+                return True
+
+        return False
+
     @override
     def capture(self, y_prev: int, x_prev: int) -> bool:
         """Whether the Drawable can be selected."""
-        y, x = self._get_y_x()
+        y, x = self.get_y_x()
         if not self.drawables:  # If no drawable, cannot be captured.
             return False
 
-        # TODO: via score / distance
-        # TODO: for now, temp behaviour
         # Capture the last drawable if coming from the right or below.
         if x_prev > x or (x_prev == x and y_prev > y):
-            if not self._select_last_capturable_drawable():
-                return False # Coult not capture
+            if not self._capture_best_drawable(0, 0, Direction.DOWN):
+                return False  # Coult not capture
         else:  # Capture the first drawable if coming from the left or above, or if there are no drawables.
-            if not self._select_first_capturable_drawable():
+            if not self._capture_best_drawable(0, 0, Direction.UP):
                 return False
         return True  # Accept capture.
 
@@ -237,32 +249,21 @@ class Submenu(Drawable):
             return KeyBehaviourFlag.HANDLED  # Key handled by selected drawable, exit.
         elif flag is KeyBehaviourFlag.EXIT:
             # Drawable wishes not to be captured anymore.
-            # TODO: use score / distance
-            # TODO: for now, temp behaviour
-            # Find next capturing drawable.
-            if key == curses.KEY_DOWN:
-                # Go through the drawables until we find a capture-able one, or loop back to the start.
-                prev_y, prev_x = selected_drawable._get_y_x()
-                for i in range(self._selected_drawable_index + 1, len(self.drawables)):
-                    if self.drawables[i].capture(prev_y, prev_x):
-                        self.select_drawable(i)
-                        return (
-                            KeyBehaviourFlag.HANDLED
-                        )  # Found a capture-able drawable, select it and exit.
-                # Else no drawable found, try to remove capture
-                return KeyBehaviourFlag.EXIT
 
-            elif key == curses.KEY_UP:
-                # Go through the drawables until we find a capture-able one, or loop back to the end.
-                prev_y, prev_x = selected_drawable._get_y_x()
-                for i in range(self._selected_drawable_index - 1, -1, -1):
-                    if self.drawables[i].capture(prev_y, prev_x):
-                        self.select_drawable(i)
-                        return (
-                            KeyBehaviourFlag.HANDLED
-                        )  # Found a capture-able drawable, select it and exit.
-                # Else no drawable found, try to remove capture
-                return KeyBehaviourFlag.EXIT
+            # Find next capturing drawable.
+            direction = {  # direction flag map
+                curses.KEY_DOWN: Direction.DOWN,
+                curses.KEY_UP: Direction.UP,
+                curses.KEY_LEFT: Direction.LEFT,
+                curses.KEY_RIGHT: Direction.RIGHT,
+            }.get(key, None)
+
+            if direction:
+                if not self._capture_best_drawable(
+                    *selected_drawable.get_y_x(), direction
+                ):
+                    return KeyBehaviourFlag.EXIT  # No drawable to capture, exit.
+            # else, invalid direction
 
         # else, nothing done
         return KeyBehaviourFlag.SKIPPED
@@ -285,7 +286,7 @@ class Submenu(Drawable):
     def _check_selected_drawable(self) -> None:
         """Check whether the selected drawable index is valid."""
         if self._selected_drawable_index is None:
-            return # No drawable selected, nothing to check.
+            return  # No drawable selected, nothing to check.
 
         if self._selected_drawable_index < 0 or self._selected_drawable_index >= len(
             self.drawables
@@ -308,11 +309,11 @@ class MenuBase(Submenu, ABC):
 
         if flag is KeyBehaviourFlag.EXIT:
             # Try recapturing self
-            y, x = self._get_y_x()
+            y, x = self.get_y_x()
             if key in (curses.KEY_UP, curses.KEY_LEFT):
-                x+=1 # Try recapturing from end
+                x += 1  # Try recapturing from end
             elif key in (curses.KEY_DOWN, curses.KEY_RIGHT):
-                x-=1
+                x -= 1
             if self.capture(y, x):
                 return (
                     KeyBehaviourFlag.HANDLED
@@ -343,9 +344,7 @@ class Menu(MenuBase):
     def draw(self, window: cwin) -> None:
         """Draw the menu and its drawables."""
         palette = self.get_palette()
-        draw_fill(
-            window, 0, 0, curses.LINES, curses.COLS, color_pair=palette.primary
-        )
+        draw_fill(window, 0, 0, curses.LINES, curses.COLS, color_pair=palette.primary)
 
         super().draw(window)
 

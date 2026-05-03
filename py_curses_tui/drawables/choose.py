@@ -51,7 +51,7 @@ class Choose(Drawable):
     def draw(self, window) -> None:
         """Draw the button element."""
         super().draw(window)
-        y, x = self._get_y_x()
+        y, x = self.get_y_x()
         palette = self.get_palette()
 
         for i, (option_text, _) in enumerate(self.options):
@@ -72,7 +72,7 @@ class Choose(Drawable):
         if not self.options:
             return False  # No options, cannot be selected.
 
-        y, x = self._get_y_x() # TODO: use hitbox
+        y, x = self.get_y_x() # TODO: use hitbox
         if (y_prev < y):
             self.selected_index = 0 # Select the first option when capturing.
         else:

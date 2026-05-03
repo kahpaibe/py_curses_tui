@@ -41,7 +41,7 @@ class Button(Drawable):
     def draw(self, window) -> None:
         """Draw the button element."""
         super().draw(window)
-        y, x = self._get_y_x()
+        y, x = self.get_y_x()
         palette = self.get_palette()
 
         text_to_draw: str = (
