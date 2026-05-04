@@ -5,7 +5,7 @@ Choose drawable.
 import curses
 from typing import Optional, override, Callable
 
-from py_curses_tui.utils.colors import Palette
+from tuile.utils.colors import Palette
 from ..core import Drawable, SignalCaptureRemove
 from ..genstr import GenStr
 from ..utils.draw_utils import draw_genstr

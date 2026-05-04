@@ -1,10 +1,10 @@
 import curses
 
-from py_curses_tui.core import Application, Menu
-from py_curses_tui.genstr import GenStr
+from tuile.core import Application, Menu
+from tuile.genstr import GenStr
 
-from py_curses_tui.drawables import Text, Button, Box, Fill, Choose, TextDynamic
-from py_curses_tui.utils.colors import (
+from tuile.drawables import Text, Button, Box, Fill, Choose, TextDynamic
+from tuile.utils.colors import (
     TERMINAL_COLORS_BASIC,
     PALETTE_BASIC,
     COLOR_PAIRS_BASIC,
