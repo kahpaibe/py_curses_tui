@@ -84,9 +84,7 @@ if __name__ == "__main__":
     menu_test.add_drawable(choose)
 
     def _dyna_text(td: TextDynamic) -> GenStr:
-        out_str = f"Dynamic text: {app.menus[0]._selected_drawable_index:}"
-
-        
+        out_str = f"Dynamic text: {app.menus[0]._selected_drawable_index:}"        
 
         return GenStr((out_str, -12))
     

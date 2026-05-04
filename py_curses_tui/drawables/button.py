@@ -6,7 +6,7 @@ import curses
 from typing import Optional, override, Callable
 
 from py_curses_tui.utils.colors import Palette
-from ..core import Drawable, KeyBehaviourFlag
+from ..core import Drawable, SignalCaptureRemove
 from ..genstr import GenStr
 from ..utils.draw_utils import draw_genstr
 from ..utils.misc import centered_text
@@ -73,15 +73,15 @@ class Button(Drawable):
         self._is_selected = False
 
     @override
-    def key_behaviour(self, key: int) -> KeyBehaviourFlag:
+    def key_behaviour(self, key: int) -> bool:
         # Remove capture
         if key in (curses.KEY_UP, curses.KEY_DOWN, curses.KEY_LEFT, curses.KEY_RIGHT):
             self._on_exit()
-            return KeyBehaviourFlag.EXIT
+            raise SignalCaptureRemove(*self.get_y_x()) # Remove capture
 
         # Action on Enter
         if key == ord("\n"):
             self.action(self) # Call the action.
-            return KeyBehaviourFlag.HANDLED
+            return True
 
-        return KeyBehaviourFlag.SKIPPED
+        return False
