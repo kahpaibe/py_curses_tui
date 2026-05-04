@@ -6,7 +6,7 @@ import curses
 from typing import Optional, override, Callable
 
 from py_curses_tui.utils.colors import Palette
-from ..core import Drawable, KeyBehaviourFlag
+from ..core import Drawable, SignalCaptureRemove
 from ..genstr import GenStr
 from ..utils.draw_utils import draw_genstr
 from ..utils.misc import padded_text
@@ -55,9 +55,13 @@ class Choose(Drawable):
         palette = self.get_palette()
 
         for i, (option_text, _) in enumerate(self.options):
-            is_selected = (i == self.selected_index)
+            is_selected = i == self.selected_index
             attrs: list[int] = [curses.A_STANDOUT] if is_selected else []
-            text_to_draw = padded_text(option_text, self.width) if self.width is not None else option_text
+            text_to_draw = (
+                padded_text(option_text, self.width)
+                if self.width is not None
+                else option_text
+            )
             draw_genstr(
                 window,
                 y + i,  # Draw each option on a new line.
@@ -69,47 +73,57 @@ class Choose(Drawable):
     @override
     def capture(self, y_prev: int, x_prev: int) -> bool:
         """Whether the Drawable can be selected."""
+        print(f"Capturing Choose at ({y_prev}, {x_prev})")
         if not self.options:
             return False  # No options, cannot be selected.
 
-        y, x = self.get_y_x() # TODO: use hitbox
-        if (y_prev < y):
-            self.selected_index = 0 # Select the first option when capturing.
-        else:
-            self.selected_index = len(self.options) - 1 # Select the last option when capturing.
-        return True
+        y, x = self.get_y_x()  # TODO: use hitbox
+        if y_prev < y:
+            self.selected_index = 0  # Select the first option when capturing.
+        elif y_prev > y + len(self.options) - 1:
+            self.selected_index = (
+                len(self.options) - 1
+            )  # Select the last option when capturing.
+        else: # Inside
+            self.selected_index = y_prev - y  # Select the option based on the y position.
         
+        return True
 
     def _on_exit(self) -> None:
         """Called when the Drawable is deselected."""
         self.selected_index = None
 
     @override
-    def key_behaviour(self, key: int) -> KeyBehaviourFlag:
+    def key_behaviour(self, key: int) -> bool:
+        y, x = self.get_y_x()
         if key in (curses.KEY_LEFT, curses.KEY_RIGHT):
+            origin_y = y if self.selected_index is None else y + self.selected_index
             self._on_exit()
-            return KeyBehaviourFlag.EXIT
-        
+            raise SignalCaptureRemove(origin_y, x)  # Remove capture
+
         elif key == curses.KEY_UP:
             if self.selected_index is None or self.selected_index == 0:
                 self._on_exit()
-                return KeyBehaviourFlag.EXIT
+                raise SignalCaptureRemove(y, x)  # Remove capture
             # else: move up
             self.selected_index -= 1
-            return KeyBehaviourFlag.HANDLED
-        
+            return True
+
         elif key == curses.KEY_DOWN:
-            if self.selected_index is None or self.selected_index == len(self.options) - 1:
+            if (
+                self.selected_index is None
+                or self.selected_index == len(self.options) - 1
+            ):
                 self._on_exit()
-                return KeyBehaviourFlag.EXIT
+                raise SignalCaptureRemove(y+len(self.options)-1, x)  # Remove capture
             # else: move down
             self.selected_index += 1
-            return KeyBehaviourFlag.HANDLED
-        
-        elif key == ord("\n"): # Enter key
+            return True
+
+        elif key == ord("\n"):  # Enter key
             if self.selected_index is not None:
                 _, action = self.options[self.selected_index]
                 action(self)  # Call the action.
-                return KeyBehaviourFlag.HANDLED
+                return True
 
-        return KeyBehaviourFlag.SKIPPED
+        return False

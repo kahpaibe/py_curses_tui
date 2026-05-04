@@ -21,16 +21,25 @@ from .utils.colors import (
 # =====================================
 
 
-class RedrawSignal(Exception):  # TODO: to use
+class Signal(Exception):
+    """Signal for above layers."""
+
+
+class SignalRedraw(Signal):  # TODO: to handle
     """Exception to signal a redraw of the UI."""
 
 
-class KeyBehaviourFlag(Enum):
-    """Flag for key_behaviour."""
+class SignalExit(Signal):
+    """Exception to signal exit of the application."""
 
-    SKIPPED = 0  # Key not used (e.g. no key behaviour)
-    HANDLED = 1  # Key used (e.g. button press)
-    EXIT = -1  # Ask to remove selection (e.g. navigate out)
+
+class SignalCaptureRemove(Signal):
+    """Exception to signal removal of a drawable from capture."""
+
+    def __init__(self, y_from: int, x_from: int, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.y_from = y_from  # y value of removal origin
+        self.x_from = x_from  # x value of removal origin
 
 
 # =====================================
@@ -90,14 +99,16 @@ class Drawable:
         """
         return False  # Non-capturing drawable.
 
-    def key_behaviour(self, key: int) -> KeyBehaviourFlag:
+    def key_behaviour(self, key: int) -> bool:
         """Behaviour of the Drawable in reponse to a key input.
 
         Args:
             - key (int): key to process
 
-        Return (KeyBehaviourFlag):
-            Flag to communicate how the key was handled.
+        Return (bool):
+            True if the key was handled, False if skipped.
+        Raises:
+            (Signal): Signals to be handled by upper layers, such as the menu or application.
         """
         # Non-capturing drawables by default.
         raise NotImplementedError(
@@ -178,7 +189,6 @@ class Submenu(Drawable):
     ) -> bool:
         """Try capturing the best drawable according to distance."""
 
-        # TODO: need for a "exit from" mechanism
         distances: list[tuple[int, int]] = []
         for i, drawable in enumerate(self.drawables):
             d = distance(
@@ -190,12 +200,8 @@ class Submenu(Drawable):
                 curses.COLS,
             )
             distances.append((d, i))
-            print(f"Distance between ({y_prev}, {x_prev}) and drawable {i} at {drawable.get_y_x()} in direction {direction}: {d}")
 
         distances.sort(key=lambda x: x[0])  # Sort by distance
-        for d, i in distances:
-            if i in (9, 11):
-                print(f"Distance to drawable {i}: {d}")
 
         # Try capturing the drawables in order of distance until one is captured.
         for _, i in distances:
@@ -214,59 +220,59 @@ class Submenu(Drawable):
 
         # Capture the last drawable if coming from the right or below.
         if x_prev > x or (x_prev == x and y_prev > y):
-            if not self._capture_best_drawable(0, 0, Direction.DOWN):
+            if not self._capture_best_drawable(y_prev, x_prev, Direction.DOWN):
                 return False  # Coult not capture
         else:  # Capture the first drawable if coming from the left or above, or if there are no drawables.
-            if not self._capture_best_drawable(0, 0, Direction.UP):
+            if not self._capture_best_drawable(y_prev, x_prev, Direction.UP):
                 return False
         return True  # Accept capture.
 
     @override
-    def key_behaviour(self, key: int) -> KeyBehaviourFlag:
+    def key_behaviour(self, key: int) -> bool:
         """Behaviour of the Submenu in reponse to a key input.
 
         Args:
             - key (int): key to process
 
-        Return (KeyBehaviourFlag):
-            Flag to communicate how the key was handled.
+        Return (bool):
+            True if the key was handled, False if skipped.
+        Raises:
+            (Signal): Signals to be handled by upper layers, such as the menu or application.
         """
         if not self.drawables or self._selected_drawable_index is None:
-            return KeyBehaviourFlag.SKIPPED  # Nothing to do since there is no drawable.
+            return False  # Nothing to do since there is no drawable.
 
         # Check selected drawable validity.
         self._check_selected_drawable()
         selected_drawable = self.drawables[self._selected_drawable_index]
 
         # Call selected drawable's key_behaviour
-        flag = selected_drawable.key_behaviour(key)
+        try:
+            flag = selected_drawable.key_behaviour(key)
+        except Signal as signal:
+            if isinstance(signal, SignalCaptureRemove):  # Capture removal
+                # Find next capturing drawable.
+                direction = {  # direction flag map
+                    curses.KEY_DOWN: Direction.DOWN,
+                    curses.KEY_UP: Direction.UP,
+                    curses.KEY_LEFT: Direction.LEFT,
+                    curses.KEY_RIGHT: Direction.RIGHT,
+                }.get(key, None)
 
-        if flag is KeyBehaviourFlag.SKIPPED:
-            return (
-                KeyBehaviourFlag.SKIPPED
-            )  # Key not captured by selected drawable, skip.
-        elif flag is KeyBehaviourFlag.HANDLED:
-            return KeyBehaviourFlag.HANDLED  # Key handled by selected drawable, exit.
-        elif flag is KeyBehaviourFlag.EXIT:
-            # Drawable wishes not to be captured anymore.
+                captured = False
+                if direction:
+                    captured = self._capture_best_drawable(
+                        signal.y_from, signal.x_from, direction
+                    )
+                # If no drawable was captured, try recapturing self from the signal's origin.
+                if not captured:
+                    return self.capture(signal.y_from, signal.x_from)
+                return True
 
-            # Find next capturing drawable.
-            direction = {  # direction flag map
-                curses.KEY_DOWN: Direction.DOWN,
-                curses.KEY_UP: Direction.UP,
-                curses.KEY_LEFT: Direction.LEFT,
-                curses.KEY_RIGHT: Direction.RIGHT,
-            }.get(key, None)
+            # Pass signal to upper layers
+            raise signal
 
-            if direction:
-                if not self._capture_best_drawable(
-                    *selected_drawable.get_y_x(), direction
-                ):
-                    return KeyBehaviourFlag.EXIT  # No drawable to capture, exit.
-            # else, invalid direction
-
-        # else, nothing done
-        return KeyBehaviourFlag.SKIPPED
+        return flag
 
     # @override
     # def _on_first_draw(self) -> None:
@@ -303,26 +309,18 @@ class MenuBase(Submenu, ABC):
     """Base class for menus."""
 
     @override
-    def key_behaviour(self, key: int) -> KeyBehaviourFlag:
+    def key_behaviour(self, key: int) -> bool:
         # Is itself the main submenu, so exit should be handled carefully
-        flag = super().key_behaviour(key)
-
-        if flag is KeyBehaviourFlag.EXIT:
-            # Try recapturing self
-            y, x = self.get_y_x()
-            if key in (curses.KEY_UP, curses.KEY_LEFT):
-                x += 1  # Try recapturing from end
-            elif key in (curses.KEY_DOWN, curses.KEY_RIGHT):
-                x -= 1
-            if self.capture(y, x):
-                return (
-                    KeyBehaviourFlag.HANDLED
-                )  # Successfully recaptured self, exit handled.
-            else:
-                raise ValueError(
-                    "Main menu should always be able to recapture itself when a drawable tries to exit from it."
-                )
-
+        try:
+            flag = super().key_behaviour(key)
+        except Signal as signal:
+            if isinstance(signal, SignalCaptureRemove):
+                if not self.capture(signal.y_from, signal.x_from):
+                    raise ValueError(
+                        "Main menu should always be able to recapture itself on drawable capture removal."
+                    )
+            raise signal
+        
         return flag
 
 
@@ -430,9 +428,13 @@ class Application:
             self._running = False  # Exit on 'q' key.
             return
 
-        flag = self.menus[self.selected_menu].key_behaviour(key)
-        if flag == KeyBehaviourFlag.EXIT:
-            raise ValueError("A selected menu should never be exited from.")
+        try:
+            self.menus[self.selected_menu].key_behaviour(key)
+        except Signal as signal:
+            if isinstance(signal, SignalCaptureRemove):
+                raise ValueError("A selected menu should never be exited from.")
+            raise signal
+        
 
     def _on_loop_start(self) -> None:
         """Behaviour to execute on the first draw of the UI."""
